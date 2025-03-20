@@ -18,9 +18,16 @@ def ocr_pdf(file_path: str) -> str:
         VisualFeatures.READ,
     ]
     file_name = os.path.basename(file_path)[:-4].replace(" ", "_")
+    if not os.path.exists("extracted_texts"):
+        os.makedirs("extracted_texts")
+
+    # Remove file if already exist
     output_file = f'extracted_texts/{file_name}.txt'
     if os.path.exists(output_file):
         os.remove(output_file)
+
+    with open(output_file, 'w') as file:
+        file.write('')
 
     images_folder = f"images_from_pdf/{file_name}"
     if not os.path.exists(images_folder):
