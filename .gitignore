@@ -1,0 +1,8 @@
+backend/__pycache__/
+backend/.venv/
+backend/extracted_texts/
+backend/images_from_pdf/
+backend/output_files/
+backend/uploaded_files/
+backend/.env
+backend/mistakes.json
