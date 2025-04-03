@@ -41,9 +41,9 @@ def mistakes_detect(text: str) -> (dict | None):
     )
 
     tool_ids = [
-        "8949c2fb-d5e7-4893-a55e-6c65a10921bc",
-        "b96bf2d9-13ab-4359-aa23-5e6c6ff56dbc",
-        "e0b65646-3762-4984-8c55-60286fa36626"
+        "3ece42f4-d5db-4d30-a320-d9ddc3d5b3bc",
+        "ecb72b16-9c87-45d0-bd21-6c628294d400",
+        "41dcba91-2780-4e69-ba85-91a881971432"
     ]
     # Correcting the text
     json_data = mistakes_correction(client, text, tool_ids[0])
@@ -143,13 +143,17 @@ def mistakes_analysis(client: RelevanceAI, json_data: str|dict, tool_id: str) ->
         print(f"Error: {e}")
 
 
+def get_text(json_result):
+    result = json.loads(json_result["text"])
+    return result[0]
+
 def process_output(first_result: dict, second_result: dict, third_result: dict, fourth_result: dict):
     try:
         data = []
-        data.append(first_result["text"])
-        data.append(second_result["text"])
-        data.append(third_result["text"])
-        data.append(fourth_result["text"])
+        data.append(get_text(first_result))
+        data.append(get_text(second_result))
+        data.append(get_text(third_result))
+        data.append(get_text(fourth_result))
 
         res = {"output": data}
 
