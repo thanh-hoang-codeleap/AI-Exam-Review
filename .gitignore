@@ -6,3 +6,6 @@ backend/output_files/
 backend/uploaded_files/
 backend/.env
 backend/mistakes.json
+backend/task_files
+backend/solution_file/
+backend/relevance_tool/__pycache__/
