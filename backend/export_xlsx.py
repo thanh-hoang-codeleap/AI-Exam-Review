@@ -9,21 +9,32 @@ def load_json_data(file_path):
 
 def flatten_data(data):
     flattened_data = []
+    
+    # Ensure 'output' is in data
+    if 'output' not in data:
+        return flattened_data  # Return empty if no 'output' key
+
     for json_string in data['output']:
-        parsed_data = json.loads(json_string)
-        for item in parsed_data:
-            original = item['original']
-            corrected = item['corrected']
-            for mistake in item['mistakes']:
+        parsed_data = json_string
+
+        # Extract original and corrected sentence with checks
+        original = parsed_data.get('original', '')
+        corrected = parsed_data.get('corrected', '')
+
+        # Ensure 'mistakes' key exists
+        if 'mistakes' in parsed_data:
+            for mistake in parsed_data['mistakes']:
                 flattened_data.append({
                     "Original Sentence": original,
                     "Corrected Sentence": corrected,
-                    "Incorrect Word/ Phrase": mistake['incorrect'],
-                    "Correction for Word/ Phrase": mistake['correction'],
-                    "Mistake Short-form": mistake['short_form'],
-                    "Mistake Analysis": mistake['analysis']
+                    "Incorrect Word/ Phrase": mistake.get('incorrect', ''),
+                    "Correction for Word/ Phrase": mistake.get('correction', ''),
+                    "Mistake Short-form": mistake.get('short_form', ''),
+                    "Mistake Analysis": mistake.get('analysis', '')
                 })
+
     return flattened_data
+
 
 def save_data_to_excel(data, file_path):
     df = pd.DataFrame(data)
