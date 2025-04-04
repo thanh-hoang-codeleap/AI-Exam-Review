@@ -96,7 +96,7 @@ def upload_file():
             return jsonify({
                 "success": True,
                 "filename": file.filename,
-                "text": "text",
+                "text": text,
                 "excel": excel
             })
         
