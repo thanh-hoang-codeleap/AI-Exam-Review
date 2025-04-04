@@ -13,7 +13,7 @@ def process_task(paper_path, solution_path):
     )
 
     tool_id = [
-        "e8286d6d-6a24-4d49-bfac-6f58516087e4"
+        "80c3b36b-a6ac-4337-bad3-c1191ab8b36a"
      ]
 
     return extract_exam_solution(paper_path, solution_path, client, tool_id[0])
