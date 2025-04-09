@@ -10,13 +10,16 @@ load_dotenv()
 
 def ocr_pdf(file_path: str) -> str:
     # Convert PDF pages to images
+    print("Converting to images")
     images = convert_from_path(file_path)
 
     # Initialize Azure ImageAnalysisClient
+    print("Initializing client...")
     client = ImageAnalysisClient(
         endpoint=os.getenv("END_POINT"),
         credential=AzureKeyCredential(os.getenv("API_KEY"))
     )
+    print("Finish initialize")
     visual_features =[
         VisualFeatures.READ,
     ]
@@ -34,6 +37,7 @@ def ocr_pdf(file_path: str) -> str:
         os.makedirs(images_folder)
 
     # Process each image (PDF page) for OCR
+    print("Processing images")
     for i, image in enumerate(images):
         image_path = f'{images_folder}/page_{i + 1}.png'
         image.save(image_path, 'PNG')
