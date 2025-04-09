@@ -35,7 +35,7 @@ jobs:
         id: meta_backend
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository }}/ai-exam-reviewer-backend
+          images: ghcr.io/thanh-hoang-codeleap/ai-exam-review/ai-exam-reviewer-backend
 
       - name: Build and push Backend Docker image
         uses: docker/build-push-action@v5
@@ -45,8 +45,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
           tags: | # Define tags - use metadata action output or define manually
-            ghcr.io/${{ github.repository }}/ai-exam-reviewer-backend:latest
-            ghcr.io/${{ github.repository }}/ai-exam-reviewer-backend:sha-${{ github.sha }}
+            ghcr.io/thanh-hoang-codeleap/ai-exam-review/ai-exam-reviewer-backend:latest
+            ghcr.io/thanh-hoang-codeleap/ai-exam-review/ai-exam-reviewer-backend:sha-${{ github.sha }}
             # ${{ steps.meta_backend.outputs.tags }} # Alternative using metadata action
           labels: ${{ steps.meta_backend.outputs.labels }} # Optional: Add labels from metadata action
           cache-from: type=gha # Use GitHub Actions cache for layers
@@ -80,7 +80,7 @@ jobs:
         id: meta_frontend
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ github.repository }}/ai-exam-reviewer-frontend # Adjust image name if desired
+          images: ghcr.io/thanh-hoang-codeleap/ai-exam-review/ai-exam-reviewer-frontend # Adjust image name if desired
 
       - name: Build and push Frontend Docker image
         uses: docker/build-push-action@v5
@@ -90,8 +90,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
           tags: | # Define tags
-            ghcr.io/${{ github.repository }}/ai-exam-reviewer-frontend:latest
-            ghcr.io/${{ github.repository }}/ai-exam-reviewer-frontend:sha-${{ github.sha }}
+            ghcr.io/thanh-hoang-codeleap/ai-exam-review/ai-exam-reviewer-frontend:latest
+            ghcr.io/thanh-hoang-codeleap/ai-exam-review/ai-exam-reviewer-frontend:sha-${{ github.sha }}
             # ${{ steps.meta_frontend.outputs.tags }} # Alternative using metadata action
           labels: ${{ steps.meta_frontend.outputs.labels }} 
           cache-from: type=gha
