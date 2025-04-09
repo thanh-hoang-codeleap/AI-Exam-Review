@@ -1,0 +1,26 @@
+services:
+  backend:
+    image: ghcr.io/thanh-hoang-codeleap/AI-Exam-Review/ai-backend:latest
+    container_name: ai-exam-reviewer-backend
+    env_file:
+      - ./backend/.env
+    ports:
+      - "8000:8000" 
+    networks:
+      - app-network 
+    restart: unless-stopped
+
+  frontend:
+    image: ghcr.io/thanh-hoang-codeleap/AI-Exam-Review/ai-frontend:latest
+    container_name: ai-exam-reviewer-frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - app-network
+    restart: unless-stopped
+
+networks:
+  app-network:
+    driver: bridge
