@@ -9,66 +9,71 @@ from azure.core.exceptions import HttpResponseError
 load_dotenv()
 
 def ocr_pdf(file_path: str) -> str:
-    # Convert PDF pages to images
-    print("Converting to images")
-    images = convert_from_path(file_path)
+    try:
+        # Convert PDF pages to images
+        print("Converting to images")
+        print(file_path)
+        images = convert_from_path(file_path)
 
-    # Initialize Azure ImageAnalysisClient
-    print("Initializing client...")
-    client = ImageAnalysisClient(
-        endpoint=os.getenv("END_POINT"),
-        credential=AzureKeyCredential(os.getenv("API_KEY"))
-    )
-    print("Finish initialize")
-    visual_features =[
-        VisualFeatures.READ,
-    ]
-    file_name = os.path.basename(file_path)[:-4].replace(" ", "_")
-    output_file = f'backend/extracted_texts/{file_name}.txt'
-    if os.path.exists(output_file):
-        os.remove(output_file)
+        # Initialize Azure ImageAnalysisClient
+        print("Initializing client...")
+        client = ImageAnalysisClient(
+            endpoint=os.getenv("END_POINT"),
+            credential=AzureKeyCredential(os.getenv("API_KEY"))
+        )
+        print("Finish initialize")
+        visual_features =[
+            VisualFeatures.READ,
+        ]
+        file_name = os.path.basename(file_path)[:-4].replace(" ", "_")
+        output_file = f'backend/extracted_texts/{file_name}.txt'
+        if os.path.exists(output_file):
+            os.remove(output_file)
 
-    with open(output_file, "w") as f:
-    # You can now write to the file, for example:
-        f.write("")
+        with open(output_file, "w") as f:
+        # You can now write to the file, for example:
+            f.write("")
 
-    images_folder = f"images_from_pdf/{file_name}"
-    if not os.path.exists(images_folder):
-        os.makedirs(images_folder)
+        images_folder = f"images_from_pdf/{file_name}"
+        if not os.path.exists(images_folder):
+            os.makedirs(images_folder)
 
-    # Process each image (PDF page) for OCR
-    print("Processing images")
-    for i, image in enumerate(images):
-        image_path = f'{images_folder}/page_{i + 1}.png'
-        image.save(image_path, 'PNG')
+        # Process each image (PDF page) for OCR
+        print("Processing images")
+        for i, image in enumerate(images):
+            image_path = f'{images_folder}/page_{i + 1}.png'
+            image.save(image_path, 'PNG')
 
-        with open(image_path, "rb") as f:
-            image_data = f.read()
+            with open(image_path, "rb") as f:
+                image_data = f.read()
 
-        try:
-            print(f"Processing page {i + 1}...") 
+            try:
+                print(f"Processing page {i + 1}...") 
 
-            # Call Azure OCR API
-            result = client.analyze(
-                image_data=image_data,
-                visual_features=visual_features,
-                language="en"
-            )
+                # Call Azure OCR API
+                result = client.analyze(
+                    image_data=image_data,
+                    visual_features=visual_features,
+                    language="en"
+                )
 
-            if result.read is not None:
-                print("Saving text...")
-                with open(output_file, "a") as file:
-                    for line in result.read.blocks[0].lines:
-                        file.write(line.text)
-                        file.write(" ")
-                        #print(line.text)
-                        # print(f"   Line: '{line.text}', Bounding box {line.bounding_polygon}")
-                        # for word in line.words:
-                        #     print(f"     Word: '{word.text}', Bounding polygon {word.bounding_polygon}, Confidence {word.confidence:.4f}")
-            print(f"Finish processing page {i + 1}")
+                if result.read is not None:
+                    print("Saving text...")
+                    with open(output_file, "a") as file:
+                        for line in result.read.blocks[0].lines:
+                            file.write(line.text)
+                            file.write(" ")
+                            #print(line.text)
+                            # print(f"   Line: '{line.text}', Bounding box {line.bounding_polygon}")
+                            # for word in line.words:
+                            #     print(f"     Word: '{word.text}', Bounding polygon {word.bounding_polygon}, Confidence {word.confidence:.4f}")
+                print(f"Finish processing page {i + 1}")
 
-        except HttpResponseError as e:
-            print(f"Status code: {e.status_code}")
-            print(f"Reason: {e.reason}")
-            print(f"Message: {e.error.message}")
-    return output_file
+            except HttpResponseError as e:
+                print(f"Status code: {e.status_code}")
+                print(f"Reason: {e.reason}")
+                print(f"Message: {e.error.message}")
+        return output_file
+    
+    except Exception as e:
+        print(f"Error: {e}")
