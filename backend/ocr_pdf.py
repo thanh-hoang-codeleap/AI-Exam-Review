@@ -1,9 +1,12 @@
 import os
 from pdf2image import convert_from_path
+from dotenv import load_dotenv
 from azure.ai.vision.imageanalysis import ImageAnalysisClient
 from azure.ai.vision.imageanalysis.models import VisualFeatures
 from azure.core.credentials import AzureKeyCredential
 from azure.core.exceptions import HttpResponseError
+
+load_dotenv()
 
 def ocr_pdf(file_path: str) -> str:
     # Convert PDF pages to images
