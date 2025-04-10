@@ -179,6 +179,8 @@ def process_solution_file():
             with open(solution_json_path, "w") as file:
                 json.dump(result, file)
         except Exception as e:
+            print(f"Error when saving json: {e}")
+            print(result)
             return jsonify({"success": False, "error": f"Error saving solution output: {str(e)}"})
         
         json_data = json.dumps(result, ensure_ascii=False, sort_keys=False)
