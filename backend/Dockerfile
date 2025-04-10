@@ -13,18 +13,25 @@ RUN apt-get update && \
     && apt-get clean
 
 # Set environment variables to prevent buffering stdout/stderr
-ENV PYTHONUNBUFFERED=1\
+ENV PYTHONUNBUFFERED=1 \
     UV_CACHE_DIR=/root/.cache/uv
 
 # Set the working directory in the container
 WORKDIR /app
 
+# Create a virtual environment
+RUN uv python3 -m venv /venv
+
+# Set the virtual environment's bin directory as the default
+ENV PATH="/venv/bin:$PATH"
+
 # Copy the requirements file first to leverage Docker cache
 COPY requirements.txt .
 
-# Install Python dependencies
-# Using --no-cache-dir reduces image size
-RUN uv pip install --system --no-cache -r requirements.txt
+# Install Python dependencies in the virtual environment
+RUN uv pip install --no-cache-dir -r requirements.txt
+
+# Install python-poppler in the virtual environment
 RUN uv pip install python-poppler
 
 # Copy the rest of the backend application code
