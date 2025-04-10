@@ -167,11 +167,11 @@ def process_solution_file():
         
         # Call the function with the paths to the exam paper and solution
         try:
+            print("Processing solution...")
             result = process_task(exam_paper_path, solution_path)
-            print(result)
         except Exception as e:
+            print(f"Error when processing task: {e}")
             return jsonify({"success": False, "error": f"Error processing task: {str(e)}"})
-        print(f"Error: {e}")
         
         # Save the result to a JSON file
         solution_json_path = os.path.join(app.config['SOLUTION_FOLDER'], "task_output.json")
@@ -186,6 +186,7 @@ def process_solution_file():
         return Response(json_data, mimetype='application/json')
     
     except Exception as e:
+        print(f"Error when return response: {e}")
         return jsonify({"success": False, "error": f"An unexpected error occurred: {str(e)}"})
 
 
