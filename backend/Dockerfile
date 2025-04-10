@@ -23,6 +23,7 @@ WORKDIR /app
 
 # Create a virtual environment
 RUN uv venv
+RUN source .venv/bin/activate
 
 # Set the virtual environment's bin directory as the default
 ENV PATH="/venv/bin:$PATH"
