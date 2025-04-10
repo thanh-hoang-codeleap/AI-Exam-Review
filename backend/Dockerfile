@@ -1,15 +1,17 @@
 # backend/Dockerfile
-
 FROM python:3.11-slim
 
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:0.6.13 /uv /uvx /bin/
+
+# Install system dependencies including git
 RUN apt-get update && \
     apt-get install -y \
     build-essential \
     pkg-config \
     libpoppler-cpp-dev \
     cmake \
+    git \
     && apt-get clean
 
 # Set environment variables to prevent buffering stdout/stderr
@@ -31,8 +33,12 @@ COPY requirements.txt .
 # Install Python dependencies in the virtual environment
 RUN uv pip install --no-cache-dir -r requirements.txt
 
-# Install python-poppler in the virtual environment
-RUN uv pip install python-poppler
+# Clone and install python-poppler from git
+RUN git clone https://github.com/cbrunet/python-poppler.git && \
+    cd python-poppler && \
+    uv pip install . && \
+    cd .. && \
+    rm -rf python-poppler
 
 # Copy the rest of the backend application code
 COPY . .
