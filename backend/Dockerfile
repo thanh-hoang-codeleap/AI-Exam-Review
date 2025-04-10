@@ -4,6 +4,13 @@ FROM python:3.11-slim
 
 # Install uv
 COPY --from=ghcr.io/astral-sh/uv:0.6.13 /uv /uvx /bin/
+RUN apt-get update && \
+    apt-get install -y \
+    build-essential \
+    pkg-config \
+    libpoppler-cpp-dev \
+    cmake \
+    && apt-get clean
 
 # Set environment variables to prevent buffering stdout/stderr
 ENV PYTHONUNBUFFERED=1\
@@ -18,6 +25,7 @@ COPY requirements.txt .
 # Install Python dependencies
 # Using --no-cache-dir reduces image size
 RUN uv pip install --system --no-cache -r requirements.txt
+RUN uv pip install python-poppler
 
 # Copy the rest of the backend application code
 COPY . .
