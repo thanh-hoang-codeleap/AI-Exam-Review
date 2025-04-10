@@ -57,8 +57,6 @@ def extract_exam_solution(exam_paper, solution_path, client, tool_id):
 
         result = tool_result.output
 
-        print(result)
-
         if "answer" in result:
             result = result["answer"]
         result = json.loads(result)
@@ -76,8 +74,6 @@ def extract_exam_paper(paper_path, client, tool_id):
         })
 
         result = tool_result.output
-
-        print(result)
 
         if "answer" in result:
             result = result["answer"]
