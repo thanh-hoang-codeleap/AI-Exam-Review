@@ -1,9 +1,6 @@
 # backend/Dockerfile
 FROM python:3.11-slim
 
-# Install uv
-COPY --from=ghcr.io/astral-sh/uv:0.6.13 /uv /uvx /bin/
-
 # Install system dependencies including git
 RUN apt-get update && \
     apt-get install -y \
@@ -15,14 +12,13 @@ RUN apt-get update && \
     && apt-get clean
 
 # Set environment variables to prevent buffering stdout/stderr
-ENV PYTHONUNBUFFERED=1 \
-    UV_CACHE_DIR=/root/.cache/uv
+ENV PYTHONUNBUFFERED=1
 
 # Set the working directory in the container
 WORKDIR /app
 
 # Create a virtual environment
-RUN uv venv
+RUN python -m venv venv
 
 # Set the virtual environment's bin directory as the default
 ENV PATH="./venv/bin:$PATH"
@@ -31,12 +27,12 @@ ENV PATH="./venv/bin:$PATH"
 COPY requirements.txt .
 
 # Install Python dependencies in the virtual environment
-RUN uv pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Clone and install python-poppler from git
 RUN git clone https://github.com/cbrunet/python-poppler.git && \
     cd python-poppler && \
-    uv pip install . && \
+    pip install . && \
     cd .. && \
     rm -rf python-poppler
 
