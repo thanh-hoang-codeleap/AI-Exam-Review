@@ -38,8 +38,10 @@ def ocr_pdf(file_path: str) -> str:
 
         # Initialize Azure ImageAnalysisClient
         print("Initializing client...")
+        end_point = os.getenv("END_POINT")
+        end_point = end_point.strip('"')
         client = ImageAnalysisClient(
-            endpoint=os.getenv("END_POINT"),
+            endpoint=end_point,
             credential=AzureKeyCredential(os.getenv("API_KEY"))
         )
         print("Finish initialize")
