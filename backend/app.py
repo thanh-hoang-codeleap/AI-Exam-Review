@@ -171,6 +171,7 @@ def process_solution_file():
             print(result)
         except Exception as e:
             return jsonify({"success": False, "error": f"Error processing task: {str(e)}"})
+        print(f"Error: {e}")
         
         # Save the result to a JSON file
         solution_json_path = os.path.join(app.config['SOLUTION_FOLDER'], "task_output.json")
