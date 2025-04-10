@@ -19,19 +19,22 @@ UPLOAD_FOLDER = 'backend/uploaded_files'
 OUTPUT_FOLDER = 'backend/output_files'
 SOLUTION_FOLDER = 'backend/solution_file'
 TASK_FOLDER = "backend/task_files"
+TEXT_FOLDER= "backend/extracted_texts"
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['OUTPUT_FOLDER'] = OUTPUT_FOLDER
 app.config['SOLUTION_FOLDER'] = SOLUTION_FOLDER
 app.config['TASK_FOLDER'] = TASK_FOLDER
+app.config['TEXT_FOLDER'] = TEXT_FOLDER
 STATIC_DIR = 'backend/static'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 os.makedirs(SOLUTION_FOLDER, exist_ok=True)
 os.makedirs(TASK_FOLDER, exist_ok=True)
+os.makedirs(TEXT_FOLDER, exist_ok=True)
 os.makedirs(STATIC_DIR, exist_ok=True)
 ALLOWED_EXTENSIONS = {'pdf'}
 
-required_folders = [UPLOAD_FOLDER, SOLUTION_FOLDER, TASK_FOLDER, STATIC_DIR, OUTPUT_FOLDER]
+required_folders = [UPLOAD_FOLDER, SOLUTION_FOLDER, TASK_FOLDER, TEXT_FOLDER, STATIC_DIR, OUTPUT_FOLDER]
 for folder in required_folders:
     if not os.access(folder, os.W_OK):
         print(f"Warning: No write permissions for {folder}")
