@@ -15,13 +15,22 @@ def process_task(paper_path, solution_path):
         )
 
         tool_id = [
-            "80c3b36b-a6ac-4337-bad3-c1191ab8b36a"
+            "096d3027-b56b-4157-b3f1-fe2147854e79", # Exam Paper Extraction
+            "80c3b36b-a6ac-4337-bad3-c1191ab8b36a" # Solution Paper Extraction
         ]
 
-        return extract_exam_solution(paper_path, solution_path, client, tool_id[0])\
+        print("Extracting exam paper..")
+        exam_paper = extract_exam_paper(paper_path, client, tool_id[0])
+        print("Finsish extract exam paper")
+
+        print("Extracting exam solution...")
+        result = extract_exam_solution(exam_paper, solution_path, client, tool_id[1])
+        print("Finish extracting exam solution")
+
+        return result
     
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Error when processing task: {e}")
 
 def read_file(file_path):
     try:
@@ -38,12 +47,12 @@ def read_file(file_path):
         
 
 # Extract the exam solution
-def extract_exam_solution(paper_path, solution_path, client, tool_id):
+def extract_exam_solution(exam_paper, solution_path, client, tool_id):
     try:
         solution_tool = client.tools.retrieve_tool(tool_id=tool_id)
         tool_result = solution_tool.trigger(params={
-        "long_text": read_file(paper_path),
-        "long_text_1": read_file(solution_path)
+        "exam_paper": json.dumps(exam_paper),
+        "solution_paper": read_file(solution_path)
         })
 
         result = tool_result.output
@@ -56,4 +65,24 @@ def extract_exam_solution(paper_path, solution_path, client, tool_id):
 
         return result
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Error when extracting solution: {e}")
+
+# Extract the exam paper
+def extract_exam_paper(paper_path, client, tool_id):
+    try:
+        solution_tool = client.tools.retrieve_tool(tool_id=tool_id)
+        tool_result = solution_tool.trigger(params={
+        "exam_paper": read_file(paper_path)
+        })
+
+        result = tool_result.output
+
+        print(result)
+
+        if "answer" in result:
+            result = result["answer"]
+        result = json.loads(result)
+
+        return result
+    except Exception as e:
+        print(f"Error when extracting exam paper: {e}")
