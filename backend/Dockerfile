@@ -35,6 +35,7 @@ RUN git clone https://github.com/cbrunet/python-poppler.git && \
     pip install . && \
     cd .. && \
     rm -rf python-poppler
+WORKDIR /app
 
 # Copy the rest of the backend application code
 COPY . .
