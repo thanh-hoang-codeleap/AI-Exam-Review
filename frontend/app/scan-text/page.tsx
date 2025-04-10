@@ -255,7 +255,7 @@ export default function ScanText() {
               const formData = new FormData()
               formData.append("file", file)
 
-              const response = await axios.post("http://backend:8000/upload", formData, {
+              const response = await axios.post("https://backend.thankfulcoast-9ba238de.westus2.azurecontainerapps.io/upload", formData, {
                 headers: {
                   "Content-Type": "multipart/form-data",
                 },
@@ -508,7 +508,7 @@ export default function ScanText() {
       // For this example, we'll simulate downloading the file
 
       // Create a URL to the file on the server
-      const fileUrl = `http://backend:8000/download/${encodeURIComponent(excelFilePath)}`
+      const fileUrl = `https://backend.thankfulcoast-9ba238de.westus2.azurecontainerapps.io/download/${encodeURIComponent(excelFilePath)}`
 
       // Create a temporary link element to trigger the download
       const link = document.createElement("a")
@@ -577,7 +577,7 @@ export default function ScanText() {
       console.log("Sending FormData to server with files")
 
       // Send the request to the server
-      const response = await axios.post("http://backend:8000/solution", formData, {
+      const response = await axios.post("https://backend.thankfulcoast-9ba238de.westus2.azurecontainerapps.io/solution", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
