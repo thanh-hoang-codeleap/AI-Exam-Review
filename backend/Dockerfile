@@ -20,7 +20,7 @@ ENV PYTHONUNBUFFERED=1 \
 WORKDIR /app
 
 # Create a virtual environment
-RUN uv python3 -m venv /venv
+RUN uv venv
 
 # Set the virtual environment's bin directory as the default
 ENV PATH="/venv/bin:$PATH"
