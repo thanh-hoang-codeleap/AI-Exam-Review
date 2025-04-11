@@ -1,8 +1,6 @@
 import os
-import io
-import pymupdf
+from pdf2image import convert_from_path
 from dotenv import load_dotenv
-from PIL import Image
 from azure.ai.vision.imageanalysis import ImageAnalysisClient
 from azure.ai.vision.imageanalysis.models import VisualFeatures
 from azure.core.credentials import AzureKeyCredential
@@ -10,31 +8,12 @@ from azure.core.exceptions import HttpResponseError
 
 load_dotenv()
 
-def pdf_to_image(file_path: str) -> list:
-    try:
-        pdf_file = pymupdf.open(file_path)
-        images = []
-
-        for i in range(pdf_file.page_count):
-            print(f"Start converting page {i + 1}...")
-            page = pdf_file.load_page(i)
-            page_pix = page.get_pixmap()
-
-            img = Image.open(io.BytesIO(page_pix.tobytes("png")))
-
-            images.append(img)
-
-            print(f"Finish converting page {i + 1}")
-        return images
-    except Exception as e:
-        print(f"Error: {e}")
-        return []
-
 def ocr_pdf(file_path: str) -> str:
     try:
         # Convert PDF pages to images
-        print("Converting to images...")
-        images = pdf_to_image(file_path)
+        print("Converting to images")
+        print(file_path)
+        images = convert_from_path(file_path)
 
         # Initialize Azure ImageAnalysisClient
         print("Initializing client...")
@@ -62,7 +41,7 @@ def ocr_pdf(file_path: str) -> str:
             os.makedirs(images_folder)
 
         # Process each image (PDF page) for OCR
-        print("Processing images...")
+        print("Processing images")
         for i, image in enumerate(images):
             image_path = f'{images_folder}/page_{i + 1}.png'
             image.save(image_path, 'PNG')
