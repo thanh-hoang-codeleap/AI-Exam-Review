@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_from_directory, Response
+from flask import Flask, request, jsonify, send_from_directory, Response, session
 from flask_cors import CORS
 import json
 import os
@@ -7,6 +7,9 @@ from dotenv import load_dotenv
 from ocr_pdf import ocr_pdf
 from relevance_tool.tool_test import mistakes_detect, process_output
 from relevance_tool.tool_task import process_task
+from relevance_tool.process_tasks import get_tasks_answers, remove_last_page
+from extract_tasks import extract_tasks
+from process_task_result.answers_check import check_answers
 from export_xlsx import create_excel
 
 # Initialize Flask app
@@ -14,24 +17,29 @@ load_dotenv()
 app = Flask(__name__, static_url_path='/static', static_folder='static')
 CORS(app)
 
+app.secret_key = os.urandom(24) 
+
 # Directory setup
 UPLOAD_FOLDER = 'backend/uploaded_files'
 OUTPUT_FOLDER = 'backend/output_files'
 SOLUTION_FOLDER = 'backend/solution_file'
 TASK_FOLDER = "backend/task_files"
+TEXT_FOLDER= "backend/extracted_texts"
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['OUTPUT_FOLDER'] = OUTPUT_FOLDER
 app.config['SOLUTION_FOLDER'] = SOLUTION_FOLDER
 app.config['TASK_FOLDER'] = TASK_FOLDER
+app.config['TEXT_FOLDER'] = TEXT_FOLDER
 STATIC_DIR = 'backend/static'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 os.makedirs(SOLUTION_FOLDER, exist_ok=True)
 os.makedirs(TASK_FOLDER, exist_ok=True)
+os.makedirs(TEXT_FOLDER, exist_ok=True)
 os.makedirs(STATIC_DIR, exist_ok=True)
 ALLOWED_EXTENSIONS = {'pdf'}
 
-required_folders = [UPLOAD_FOLDER, SOLUTION_FOLDER, TASK_FOLDER, STATIC_DIR, OUTPUT_FOLDER]
+required_folders = [UPLOAD_FOLDER, SOLUTION_FOLDER, TASK_FOLDER, TEXT_FOLDER, STATIC_DIR, OUTPUT_FOLDER]
 for folder in required_folders:
     if not os.access(folder, os.W_OK):
         print(f"Warning: No write permissions for {folder}")
@@ -147,12 +155,12 @@ def process_solution_file():
             return jsonify({"success": False, "error": "No selected file"})
         
         # Save the files to the defined TASK_FOLDER
-        exam_paper_path = os.path.join(app.config['TASK_FOLDER'], exam_paper.filename)
+        session['exam_paper_path'] = os.path.join(app.config['TASK_FOLDER'], exam_paper.filename)
         solution_path = os.path.join(app.config['TASK_FOLDER'], solution.filename)
 
         # Save the exam paper file
         try:
-            exam_paper.save(exam_paper_path)
+            exam_paper.save(session['exam_paper_path'])
         except Exception as e:
             return jsonify({"success": False, "error": f"Error saving exam paper: {str(e)}"})
         
@@ -164,9 +172,10 @@ def process_solution_file():
         
         # Call the function with the paths to the exam paper and solution
         try:
-            result = process_task(exam_paper_path, solution_path)
-            print(result)
+            print("Processing solution...")
+            result = process_task(session['exam_paper_path'], solution_path)
         except Exception as e:
+            print(f"Error when processing task: {e}")
             return jsonify({"success": False, "error": f"Error processing task: {str(e)}"})
         
         # Save the result to a JSON file
@@ -174,7 +183,11 @@ def process_solution_file():
         try:
             with open(solution_json_path, "w") as file:
                 json.dump(result, file)
+
+            session['solution_path'] = solution_json_path
         except Exception as e:
+            print(f"Error when saving json: {e}")
+            print(result)
             return jsonify({"success": False, "error": f"Error saving solution output: {str(e)}"})
         
         json_data = json.dumps(result, ensure_ascii=False, sort_keys=False)
@@ -182,8 +195,58 @@ def process_solution_file():
         return Response(json_data, mimetype='application/json')
     
     except Exception as e:
+        print(f"Error when return response: {e}")
         return jsonify({"success": False, "error": f"An unexpected error occurred: {str(e)}"})
 
+# Route for extracting the answer sheet
+@app.route('/answer', methods=['POST'])
+def process_answer_sheet():
+    try:
+        # Check if the required files are present in the request
+        if 'exam_paper' not in request.files or 'student' not in request.files:
+            return jsonify({"success": False, "error": "Missing required files (exam paper or solution)"})
+        
+        answer_sheet = request.files['student']
+        
+        # Save the files to the defined TASK_FOLDER
+        answer_sheet_path = os.path.join(app.config['TASK_FOLDER'], answer_sheet.filename)
+
+        # Save the answer sheet file
+        try:
+            answer_sheet.save(answer_sheet_path)
+        except Exception as e:
+            return jsonify({"success": False, "error": f"Error saving answer sheet: {str(e)}"})
+        
+        answer_sheet_path = remove_last_page(answer_sheet_path)
+        
+        # Extract the answers from the answer sheet
+        answer_path = extract_tasks(answer_sheet_path)
+
+        try:
+            session['student_answers_path'] = get_tasks_answers(session['exam_paper_path'], answer_path)
+
+            # with open(student_answers_path, "r") as file:
+            #     data = json.load(file)
+
+        except Exception as e:
+            print(f"Error when getting answers: {e}")
+            return jsonify({"success": False, "error": f"Error when getting answers: {str(e)}"})
+        
+        try:
+            # Check the answer against the solution
+            session['checking_result_path'] = check_answers(session['solution_path'], session['student_answers_path'])
+            with open(session['checking_result_path'], "r") as file:
+                data = json.load(file)
+        except Exception as e:
+            print(f"Error when checking the answers. \n Error: {e}")
+            return jsonify({"success": False, "error": f"Error when checking the answers: {str(e)}"})
+        
+        json_data = json.dumps(data, ensure_ascii=False, sort_keys=False)
+
+        return Response(json_data, mimetype='application/json')
+        
+    except Exception as e:
+        return jsonify({"success": False, "error": f"An unexpected error occurred: {str(e)}"})
 
 if __name__ == '__main__':
     app.run(debug=True,host='0.0.0.0',port=8000)
