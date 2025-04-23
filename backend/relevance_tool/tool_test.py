@@ -41,9 +41,9 @@ def mistakes_detect(text: str) -> (dict | None):
     )
 
     tool_ids = [
-        "32618315-abfc-48e8-af92-5b8a50296edd",
-        "24e7b78b-3994-4147-ba07-62117f1b52f2",
-        "7698f127-e6be-4040-9297-1abfa69b1797"
+        "37acd9e8-8a39-4167-b667-1e4696bfbc9e", # Mistake Correction
+        "7c97d71a-3967-4577-b190-7234aa185c09", # Mistake Identification
+        "d5c87002-eda5-4d2d-8b78-3f0966c62312" # Mistake Analysis
     ]
     # Correcting the text
     json_data = mistakes_correction(client, text, tool_ids[0])
