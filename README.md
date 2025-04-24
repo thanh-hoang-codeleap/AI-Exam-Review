@@ -56,3 +56,12 @@ Clone this repository to your local machine:
    ```
    This will start the frontend development server and will be available at http://localhost:3000 \
    If you want to access the frontend from another device on the same network, use http://192.168.1.247:3000
+
+## Demo Video
+### Text Checking
+Upload a handwritten PDF, and the AI will read the text, analyze it for potential mistakes, and return the results in a downloadable Excel file.\
+[Text Checking Demo](https://drive.google.com/file/d/1CNTsygMxIUIIiZyI6-CDWEfUqjJ99DuY/view?usp=sharing)
+
+### Task Checking
+Upload both the exam paper and the corresponding solution file. The system will extract the correct answers, allowing you to review and verify them. In the future, this can be enhanced to support adjusting answers and assigning points as needed.\
+[Task Checking Demo](https://drive.google.com/file/d/1ALHSnxDN_XDssDCovClNQ8O3nGFnrAvz/view?usp=sharing)
