@@ -64,4 +64,5 @@ Upload a handwritten PDF, and the AI will read the text, analyze it for potentia
 
 ### Task Checking
 Upload both the exam paper and the corresponding solution file. The system will extract the correct answers, allowing you to review and verify them. In the future, this can be enhanced to support adjusting answers and assigning points as needed.\
-[Task Checking Demo](https://drive.google.com/file/d/1ALHSnxDN_XDssDCovClNQ8O3nGFnrAvz/view?usp=sharing)
+Once the solution extraction is complete, upload the exam paper for review. The system will extract the answers from the exam paper, compare them with the solution, and display the final result. For any incorrect answers, you can review both the answer and the solution to determine if the answer is correct.\
+[Task Checking Demo](https://drive.google.com/file/d/1NrsjiQw558_dXlKGfUNQ0Prit2XUvP_N/view?usp=sharing)

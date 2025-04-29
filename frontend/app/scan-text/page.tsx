@@ -64,7 +64,13 @@ interface ServerResponse {
 // Replace the existing QuestionAnswer interface with these new interfaces
 interface Solution {
   question: string
-  answer: string[]
+  answer:
+    | string[]
+    | {
+        student: string[]
+        solution: string[]
+      }
+  result?: "correct" | "incorrect"
 }
 
 interface Task {
@@ -184,6 +190,11 @@ export default function ScanText() {
   const [isProcessingSolution, setIsProcessingSolution] = useState(false)
   const [taskData, setTaskData] = useState<TaskData | null>(null)
 
+  // Add a new state variable for student exam data after the taskData state declaration
+  const [studentExamData, setStudentExamData] = useState<TaskData | null>(null)
+  const [isProcessingStudentExam, setIsProcessingStudentExam] = useState(false)
+  const [studentFileObj, setStudentFileObj] = useState<File | null>(null)
+
   // Update the state variables to handle exam paper files
   // 1. Add a new state for the exam paper file:
   const [examPaperFile, setExamPaperFile] = useState<UploadedFile[]>([])
@@ -192,6 +203,10 @@ export default function ScanText() {
   // Add these state variables after the other state declarations
   const [examPaperFileObj, setExamPaperFileObj] = useState<File | null>(null)
   const [solutionFileObj, setSolutionFileObj] = useState<File | null>(null)
+
+  // Add a new state to track teacher corrections
+  // Add this after the other state declarations
+  const [teacherCorrections, setTeacherCorrections] = useState<Record<string, boolean>>({})
 
   // Update the handleFiles function to handle both solution and student files
   // 2. Add a new file type option to the handleFiles function:
@@ -208,6 +223,8 @@ export default function ScanText() {
         setTaskData(null)
       } else if (fileType === "student") {
         setStudentFile([])
+        // Add this line to clear student exam data when a new student file is uploaded
+        setStudentExamData(null)
       } else if (fileType === "exam_paper") {
         setExamPaperFile([])
       }
@@ -255,7 +272,7 @@ export default function ScanText() {
               const formData = new FormData()
               formData.append("file", file)
 
-              const response = await axios.post("https://backend.thankfulcoast-9ba238de.westus2.azurecontainerapps.io/upload", formData, {
+              const response = await axios.post("http://0.0.0.0:8000/upload", formData, {
                 headers: {
                   "Content-Type": "multipart/form-data",
                 },
@@ -265,12 +282,12 @@ export default function ScanText() {
 
               // Update to handle both text and excelFilePath in the response
               const serverResponse: ServerResponse = response.data
-            setExtractedText(serverResponse.text)
+              setExtractedText(serverResponse.text)
 
-            // Set the Excel file path if it exists in the response
-            if (serverResponse.excel) {
-              setExcelFilePath(serverResponse.excel)
-            }
+              // Set the Excel file path if it exists in the response
+              if (serverResponse.excel) {
+                setExcelFilePath(serverResponse.excel)
+              }
 
               toast({
                 title: "Text extracted",
@@ -411,6 +428,8 @@ export default function ScanText() {
     handleFiles(files, fileType)
   }
 
+  // Update the handleFileInput function to store the student file object
+  // Find the handleFileInput function and modify it to store the student file object
   const handleFileInput = (
     e: React.ChangeEvent<HTMLInputElement>,
     fileType: "text" | "solution" | "student" | "exam_paper",
@@ -423,6 +442,8 @@ export default function ScanText() {
         setExamPaperFileObj(files[0])
       } else if (fileType === "solution" && files[0]) {
         setSolutionFileObj(files[0])
+      } else if (fileType === "student" && files[0]) {
+        setStudentFileObj(files[0])
       }
 
       handleFiles(files, fileType)
@@ -469,6 +490,8 @@ export default function ScanText() {
       setStudentFile((prev) => {
         const updated = [...prev]
         updated.splice(index, 1)
+        setStudentExamData(null) // Reset student exam data
+        setStudentFileObj(null) // Clear the stored File object
         return updated
       })
     } else if (fileType === "exam_paper") {
@@ -508,7 +531,7 @@ export default function ScanText() {
       // For this example, we'll simulate downloading the file
 
       // Create a URL to the file on the server
-      const fileUrl = `https://backend.thankfulcoast-9ba238de.westus2.azurecontainerapps.io/download/${encodeURIComponent(excelFilePath)}`
+      const fileUrl = `http://0.0.0.0:8000/download/${encodeURIComponent(excelFilePath)}`
 
       // Create a temporary link element to trigger the download
       const link = document.createElement("a")
@@ -577,7 +600,7 @@ export default function ScanText() {
       console.log("Sending FormData to server with files")
 
       // Send the request to the server
-      const response = await axios.post("https://backend.thankfulcoast-9ba238de.westus2.azurecontainerapps.io/solution", formData, {
+      const response = await axios.post("http://0.0.0.0:8000/solution", formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
@@ -641,6 +664,101 @@ export default function ScanText() {
     } finally {
       setIsProcessingSolution(false)
     }
+  }
+
+  // Add a new function to process the student's exam file
+  // Add this function after the processSolutionFile function
+  const processStudentExam = async () => {
+    if (!taskData || !examPaperFileObj || !solutionFileObj || !studentFileObj) {
+      toast({
+        title: "Error",
+        description: "Please process the exam paper and solution files first, then upload a student exam file.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setIsProcessingStudentExam(true)
+
+    try {
+      // Create a FormData object to send the files
+      const formData = new FormData()
+
+      // Use the stored File objects
+      formData.append("exam_paper", examPaperFileObj)
+      formData.append("solution", solutionFileObj)
+      formData.append("student", studentFileObj)
+
+      console.log("Sending student exam to server for processing")
+
+      // Send the request to the server
+      const response = await axios.post("http://0.0.0.0:8000/answer", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+        responseType: "json",
+      })
+
+      console.log("Server response for student exam:", response.data)
+
+      // Check if the response data is a string (JSON string)
+      let parsedData = response.data
+      if (typeof response.data === "string") {
+        try {
+          parsedData = JSON.parse(response.data)
+          console.log("Parsed JSON data for student exam:", parsedData)
+        } catch (parseError) {
+          console.error("Error parsing JSON response for student exam:", parseError)
+          toast({
+            title: "Error",
+            description: "Failed to parse server response for student exam.",
+            variant: "destructive",
+          })
+          setIsProcessingStudentExam(false)
+          return
+        }
+      }
+
+      // Check if the request was successful
+      if (parsedData.examPaper) {
+        setStudentExamData(parsedData.examPaper)
+
+        toast({
+          title: "Processing complete",
+          description: "Successfully processed student's exam.",
+        })
+      } else {
+        toast({
+          title: "Error",
+          description: parsedData.error || "Failed to process student's exam.",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Error processing student exam:", error instanceof Error ? error.message : String(error))
+      toast({
+        title: "Error",
+        description: "There was a problem processing the student's exam.",
+        variant: "destructive",
+      })
+    } finally {
+      setIsProcessingStudentExam(false)
+    }
+  }
+
+  // First, let's add a function to handle marking an answer as correct or incorrect
+  // Add this function before the return statement
+
+  const handleMarkAsCorrect = (questionId: string, isCorrect: boolean) => {
+    setTeacherCorrections((prev) => ({
+      ...prev,
+      [questionId]: isCorrect,
+    }))
+
+    toast({
+      title: isCorrect ? "Marked as correct" : "Marked as incorrect",
+      description: isCorrect ? "The answer has been approved as correct" : "The answer has been marked as incorrect",
+    })
   }
 
   return (
@@ -1277,6 +1395,243 @@ export default function ScanText() {
                           </div>
                         )}
 
+                        {taskData && studentFile.length > 0 && (
+                          <Button
+                            className="w-full mt-4"
+                            onClick={processStudentExam}
+                            disabled={isProcessingStudentExam || !taskData}
+                          >
+                            {isProcessingStudentExam ? (
+                              <>
+                                <div className="animate-spin mr-2 h-4 w-4 border-2 border-current border-t-transparent rounded-full"></div>
+                                Processing Student Exam...
+                              </>
+                            ) : (
+                              <>
+                                <List className="mr-2 h-4 w-4" />
+                                Process Student Exam
+                              </>
+                            )}
+                          </Button>
+                        )}
+
+                        {/* Display student exam results */}
+                        {studentExamData && (
+                          <div className="mt-6 bg-white border rounded-lg p-4">
+                            <h4 className="text-base font-medium mb-3 flex items-center">
+                              <List className="mr-2 h-5 w-5 text-blue-600" />
+                              Student's Exam Results
+                            </h4>
+                            <div className="max-h-[400px] overflow-y-auto">
+                              {Object.entries(studentExamData).map(([sectionName, sectionData]) => (
+                                <div key={sectionName} className="mb-6">
+                                  <h5 className="text-sm font-semibold bg-blue-50 p-2 rounded mb-3">{sectionName}</h5>
+
+                                  {Array.isArray(sectionData) ? (
+                                    sectionData.map((item, itemIndex) => {
+                                      // Get the first key in the item object
+                                      const itemKey = Object.keys(item)[0]
+                                      const taskSection = item[itemKey]
+
+                                      return (
+                                        <div key={itemIndex} className="mb-4">
+                                          <div className="flex justify-between items-center mb-2">
+                                            <span className="text-sm font-medium">{itemKey}</span>
+                                            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                                              Total Score: {taskSection.score}
+                                            </span>
+                                          </div>
+
+                                          <div className="space-y-4">
+                                            {taskSection.solutions.map((solution, index) => (
+                                              <div key={index} className="border-b pb-3">
+                                                <p className="text-sm font-medium">{solution.question}</p>
+
+                                                {solution.result &&
+                                                solution.answer &&
+                                                typeof solution.answer === "object" &&
+                                                "solution" in solution.answer ? (
+                                                  // New format with student and solution answers
+                                                  <div className="mt-2 space-y-2">
+                                                    {/* Correct answer */}
+                                                    <div>
+                                                      <span className="text-xs font-medium text-gray-500">
+                                                        Correct answer:
+                                                      </span>
+                                                      <div className="mt-1">
+                                                        {Array.isArray(solution.answer.solution) ? (
+                                                          solution.answer.solution.map((ans, i) => (
+                                                            <p key={i} className="text-sm bg-green-50 p-2 rounded mb-1">
+                                                              {ans}
+                                                            </p>
+                                                          ))
+                                                        ) : (
+                                                          <p className="text-sm bg-green-50 p-2 rounded mb-1">
+                                                            {String(solution.answer.solution)}
+                                                          </p>
+                                                        )}
+                                                      </div>
+                                                    </div>
+
+                                                    {/* Student answer */}
+                                                    <div>
+                                                      <span className="text-xs font-medium text-gray-500">
+                                                        Student answer:
+                                                      </span>
+                                                      <div className="mt-1 flex items-start gap-2">
+                                                        <div className="flex-1">
+                                                          {Array.isArray(solution.answer.student) ? (
+                                                            solution.answer.student.map((ans, i) => (
+                                                              <p
+                                                                key={i}
+                                                                className={`text-sm p-2 rounded mb-1 ${
+                                                                  solution.result === "correct" ||
+                                                                  teacherCorrections[
+                                                                    `${sectionName}-${itemIndex}-${index}`
+                                                                  ] === true
+                                                                    ? "bg-green-50"
+                                                                    : "bg-red-50"
+                                                                }`}
+                                                              >
+                                                                {ans}
+                                                              </p>
+                                                            ))
+                                                          ) : (
+                                                            <p
+                                                              className={`text-sm p-2 rounded mb-1 ${
+                                                                solution.result === "correct" ||
+                                                                teacherCorrections[
+                                                                  `${sectionName}-${itemIndex}-${index}`
+                                                                ] === true
+                                                                  ? "bg-green-50"
+                                                                  : "bg-red-50"
+                                                              }`}
+                                                            >
+                                                              {String(solution.answer.student)}
+                                                            </p>
+                                                          )}
+                                                        </div>
+
+                                                        {/* Toggle for teacher approval */}
+                                                        {solution.result === "incorrect" && (
+                                                          <div className="flex flex-col space-y-1">
+                                                            <div className="flex items-center space-x-2">
+                                                              <input
+                                                                type="radio"
+                                                                id={`${sectionName}-${itemIndex}-${index}-correct`}
+                                                                name={`${sectionName}-${itemIndex}-${index}`}
+                                                                checked={
+                                                                  teacherCorrections[
+                                                                    `${sectionName}-${itemIndex}-${index}`
+                                                                  ] === true
+                                                                }
+                                                                onChange={() =>
+                                                                  handleMarkAsCorrect(
+                                                                    `${sectionName}-${itemIndex}-${index}`,
+                                                                    true,
+                                                                  )
+                                                                }
+                                                                className="text-green-600 focus:ring-green-600"
+                                                              />
+                                                              <Label
+                                                                htmlFor={`${sectionName}-${itemIndex}-${index}-correct`}
+                                                                className="text-xs text-green-700"
+                                                              >
+                                                                richtig
+                                                              </Label>
+                                                            </div>
+                                                            <div className="flex items-center space-x-2">
+                                                              <input
+                                                                type="radio"
+                                                                id={`${sectionName}-${itemIndex}-${index}-incorrect`}
+                                                                name={`${sectionName}-${itemIndex}-${index}`}
+                                                                checked={
+                                                                  teacherCorrections[
+                                                                    `${sectionName}-${itemIndex}-${index}`
+                                                                  ] === false ||
+                                                                  teacherCorrections[
+                                                                    `${sectionName}-${itemIndex}-${index}`
+                                                                  ] === undefined
+                                                                }
+                                                                onChange={() =>
+                                                                  handleMarkAsCorrect(
+                                                                    `${sectionName}-${itemIndex}-${index}`,
+                                                                    false,
+                                                                  )
+                                                                }
+                                                                className="text-red-600 focus:ring-red-600"
+                                                              />
+                                                              <Label
+                                                                htmlFor={`${sectionName}-${itemIndex}-${index}-incorrect`}
+                                                                className="text-xs text-red-700"
+                                                              >
+                                                                falsch
+                                                              </Label>
+                                                            </div>
+                                                          </div>
+                                                        )}
+
+                                                        {/* Show correct indicator for correct answers */}
+                                                        {(solution.result === "correct" ||
+                                                          teacherCorrections[`${sectionName}-${itemIndex}-${index}`] ===
+                                                            true) && (
+                                                          <div className="flex items-center text-green-600">
+                                                            <CheckCircle className="h-5 w-5" />
+                                                          </div>
+                                                        )}
+                                                      </div>
+                                                    </div>
+                                                  </div>
+                                                ) : (
+                                                  // Old format fallback
+                                                  <div className="mt-2">
+                                                    <span className="text-xs font-medium text-gray-500">Answer:</span>
+                                                    <div className="mt-1">
+                                                      {Array.isArray(solution.answer) ? (
+                                                        solution.answer.map((ans, i) => (
+                                                          <p key={i} className="text-sm bg-blue-50 p-2 rounded mb-1">
+                                                            {ans}
+                                                          </p>
+                                                        ))
+                                                      ) : (
+                                                        <p className="text-sm bg-blue-50 p-2 rounded mb-1">
+                                                          {String(solution.answer)}
+                                                        </p>
+                                                      )}
+                                                    </div>
+                                                  </div>
+                                                )}
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )
+                                    })
+                                  ) : (
+                                    <div className="text-sm text-gray-500 p-2">No data available for this section</div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                            <div className="mt-4 flex justify-end">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => {
+                                  navigator.clipboard.writeText(JSON.stringify(studentExamData, null, 2))
+                                  toast({
+                                    title: "Copied to clipboard",
+                                    description: "Student exam results copied as JSON",
+                                  })
+                                }}
+                              >
+                                <Clipboard className="mr-2 h-4 w-4" />
+                                Copy as JSON
+                              </Button>
+                            </div>
+                          </div>
+                        )}
+
                         <Button
                           variant="outline"
                           onClick={() => {
@@ -1447,4 +1802,3 @@ export default function ScanText() {
     </main>
   )
 }
-
