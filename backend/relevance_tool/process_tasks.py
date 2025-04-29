@@ -41,9 +41,11 @@ def get_tasks_answers(exam_paper_path: str, answer_sheet_path: str) -> (str | No
         )
 
         tool_id = [
-            "ef2d3fed-c0b8-433a-b0fa-4533905fbf13" # Answer Extraction
+            "ef2d3fed-c0b8-433a-b0fa-4533905fbf13", # Answer Extraction
+            "93482123-8960-4cb3-9aad-de683a032eba" # Answer Mapping
         ]
 
+        print("Getting task answers...")
         get_tasks_answers_tool = client.tools.retrieve_tool(tool_id=tool_id[0])
 
         tool_result = get_tasks_answers_tool.trigger(params={
@@ -51,6 +53,7 @@ def get_tasks_answers(exam_paper_path: str, answer_sheet_path: str) -> (str | No
             "answer_sheet": answer_sheet_data
         })
 
+        print("Processing output...")
         result = tool_result.output
 
         if "answer" in result:
@@ -61,10 +64,9 @@ def get_tasks_answers(exam_paper_path: str, answer_sheet_path: str) -> (str | No
         with open(output_path, "w") as file:
             json.dump(result, file)
 
+        print("Finish getting task answers")
+
         return output_path
     
     except Exception as e:
-        print(f"Error: {e}")
-
-# path = get_tasks_answers("backend/exam_paper.json", "backend/extracted_texts/Adobe_Scan_Mar_25,_2025_(5)-pages-1.txt")
-# print(path)
+        print(f"Failed to get the tasks answers. \n Error: {e}")

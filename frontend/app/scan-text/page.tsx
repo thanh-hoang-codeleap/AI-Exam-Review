@@ -204,6 +204,10 @@ export default function ScanText() {
   const [examPaperFileObj, setExamPaperFileObj] = useState<File | null>(null)
   const [solutionFileObj, setSolutionFileObj] = useState<File | null>(null)
 
+  // Add a new state to track teacher corrections
+  // Add this after the other state declarations
+  const [teacherCorrections, setTeacherCorrections] = useState<Record<string, boolean>>({})
+
   // Update the handleFiles function to handle both solution and student files
   // 2. Add a new file type option to the handleFiles function:
   const handleFiles = (files: File[], fileType: "text" | "solution" | "student" | "exam_paper") => {
@@ -740,6 +744,21 @@ export default function ScanText() {
     } finally {
       setIsProcessingStudentExam(false)
     }
+  }
+
+  // First, let's add a function to handle marking an answer as correct or incorrect
+  // Add this function before the return statement
+
+  const handleMarkAsCorrect = (questionId: string, isCorrect: boolean) => {
+    setTeacherCorrections((prev) => ({
+      ...prev,
+      [questionId]: isCorrect,
+    }))
+
+    toast({
+      title: isCorrect ? "Marked as correct" : "Marked as incorrect",
+      description: isCorrect ? "The answer has been approved as correct" : "The answer has been marked as incorrect",
+    })
   }
 
   return (
@@ -1465,14 +1484,28 @@ export default function ScanText() {
                                                             solution.answer.student.map((ans, i) => (
                                                               <p
                                                                 key={i}
-                                                                className={`text-sm p-2 rounded mb-1 ${solution.result === "correct" ? "bg-green-50" : "bg-red-50"}`}
+                                                                className={`text-sm p-2 rounded mb-1 ${
+                                                                  solution.result === "correct" ||
+                                                                  teacherCorrections[
+                                                                    `${sectionName}-${itemIndex}-${index}`
+                                                                  ] === true
+                                                                    ? "bg-green-50"
+                                                                    : "bg-red-50"
+                                                                }`}
                                                               >
                                                                 {ans}
                                                               </p>
                                                             ))
                                                           ) : (
                                                             <p
-                                                              className={`text-sm p-2 rounded mb-1 ${solution.result === "correct" ? "bg-green-50" : "bg-red-50"}`}
+                                                              className={`text-sm p-2 rounded mb-1 ${
+                                                                solution.result === "correct" ||
+                                                                teacherCorrections[
+                                                                  `${sectionName}-${itemIndex}-${index}`
+                                                                ] === true
+                                                                  ? "bg-green-50"
+                                                                  : "bg-red-50"
+                                                              }`}
                                                             >
                                                               {String(solution.answer.student)}
                                                             </p>
@@ -1481,38 +1514,67 @@ export default function ScanText() {
 
                                                         {/* Toggle for teacher approval */}
                                                         {solution.result === "incorrect" && (
-                                                          <div className="flex border rounded-md overflow-hidden">
-                                                            <button
-                                                              className="px-3 py-1 text-xs font-medium bg-red-100 text-red-800 border-r"
-                                                              onClick={() => {
-                                                                // Handle marking as incorrect
-                                                                toast({
-                                                                  title: "Marked as incorrect",
-                                                                  description:
-                                                                    "The answer has been marked as incorrect",
-                                                                })
-                                                              }}
-                                                            >
-                                                              falsch
-                                                            </button>
-                                                            <button
-                                                              className="px-3 py-1 text-xs font-medium bg-green-100 text-green-800"
-                                                              onClick={() => {
-                                                                // Handle marking as correct
-                                                                toast({
-                                                                  title: "Marked as correct",
-                                                                  description:
-                                                                    "The answer has been approved as correct",
-                                                                })
-                                                              }}
-                                                            >
-                                                              richtig
-                                                            </button>
+                                                          <div className="flex flex-col space-y-1">
+                                                            <div className="flex items-center space-x-2">
+                                                              <input
+                                                                type="radio"
+                                                                id={`${sectionName}-${itemIndex}-${index}-correct`}
+                                                                name={`${sectionName}-${itemIndex}-${index}`}
+                                                                checked={
+                                                                  teacherCorrections[
+                                                                    `${sectionName}-${itemIndex}-${index}`
+                                                                  ] === true
+                                                                }
+                                                                onChange={() =>
+                                                                  handleMarkAsCorrect(
+                                                                    `${sectionName}-${itemIndex}-${index}`,
+                                                                    true,
+                                                                  )
+                                                                }
+                                                                className="text-green-600 focus:ring-green-600"
+                                                              />
+                                                              <Label
+                                                                htmlFor={`${sectionName}-${itemIndex}-${index}-correct`}
+                                                                className="text-xs text-green-700"
+                                                              >
+                                                                richtig
+                                                              </Label>
+                                                            </div>
+                                                            <div className="flex items-center space-x-2">
+                                                              <input
+                                                                type="radio"
+                                                                id={`${sectionName}-${itemIndex}-${index}-incorrect`}
+                                                                name={`${sectionName}-${itemIndex}-${index}`}
+                                                                checked={
+                                                                  teacherCorrections[
+                                                                    `${sectionName}-${itemIndex}-${index}`
+                                                                  ] === false ||
+                                                                  teacherCorrections[
+                                                                    `${sectionName}-${itemIndex}-${index}`
+                                                                  ] === undefined
+                                                                }
+                                                                onChange={() =>
+                                                                  handleMarkAsCorrect(
+                                                                    `${sectionName}-${itemIndex}-${index}`,
+                                                                    false,
+                                                                  )
+                                                                }
+                                                                className="text-red-600 focus:ring-red-600"
+                                                              />
+                                                              <Label
+                                                                htmlFor={`${sectionName}-${itemIndex}-${index}-incorrect`}
+                                                                className="text-xs text-red-700"
+                                                              >
+                                                                falsch
+                                                              </Label>
+                                                            </div>
                                                           </div>
                                                         )}
 
                                                         {/* Show correct indicator for correct answers */}
-                                                        {solution.result === "correct" && (
+                                                        {(solution.result === "correct" ||
+                                                          teacherCorrections[`${sectionName}-${itemIndex}-${index}`] ===
+                                                            true) && (
                                                           <div className="flex items-center text-green-600">
                                                             <CheckCircle className="h-5 w-5" />
                                                           </div>

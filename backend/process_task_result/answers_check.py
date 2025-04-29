@@ -16,7 +16,9 @@ def check_answers(solution_path: str, student_answers_path: str) -> str:
 
         result = send_prompt(client, solution_path, student_answers_path)
 
-        output_path = "backend/process_task_result/result.json"
+        print("Finish checking the answers")
+
+        output_path = "process_task_result/result.json"
         with open(output_path, "w") as file:
             json.dump(result, file)
 
@@ -31,7 +33,7 @@ def send_prompt(client, solution_path, student_answers_path):
     with open(solution_path, "r") as file:
         solution_data = json.load(file)
 
-    print("Getting student ansers data...")
+    print("Getting student answers data...")
     with open(student_answers_path, "r") as file:
         student_answers_data = json.load(file)
 
@@ -51,7 +53,7 @@ def send_prompt(client, solution_path, student_answers_path):
             ],
             model="gpt-4.1-mini",
             temperature=1,
-            max_tokens=10000,
+            max_tokens=11000,
             response_format={"type": "json_object"}
         )
         print(f"Total tokens used: {response.usage.total_tokens}")
@@ -62,10 +64,3 @@ def send_prompt(client, solution_path, student_answers_path):
     
     except Exception as e:
         print(f"Failed to send the prompt. \n Error: {e}")
-
-# path = check_answers("/Users/thanhhoang/source/repos/Exam Review/backend/response.json", "/Users/thanhhoang/source/repos/Exam Review/backend/task_answers.json")
-
-# with open(path, "r") as file:
-#     data = json.load(file)
-
-# print(data)

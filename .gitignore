@@ -1,3 +1,4 @@
+.DS_Store
 backend/__pycache__/
 backend/.venv/
 backend/extracted_texts/
@@ -8,4 +9,12 @@ backend/.env
 backend/mistakes.json
 backend/task_files
 backend/solution_file/
+backend/task_answers.json
+backend/exam_paper.json
 backend/relevance_tool/__pycache__/
+backend/process_task_result/__pycache__/
+backend/process_task_result/result.json
+backend/response.json
+backend/extracted_texts/
+backend/solution_file/
+backend/task_files/

@@ -27,7 +27,7 @@ def pdf_to_image(file_path: str) -> list:
             print(f"Finish converting page {i + 1}")
         return images
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Failed to convert the file to images. \n Error: {e}")
         return []
 
 def ocr_pdf(file_path: str) -> str:
@@ -99,4 +99,4 @@ def ocr_pdf(file_path: str) -> str:
         return output_file
     
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Faield to perform OCR. \n Error: {e}")

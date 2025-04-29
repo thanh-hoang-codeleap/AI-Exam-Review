@@ -43,7 +43,7 @@ def read_file(file_path):
         return full_text
     
     except Exception as e:
-        print(f"Error: {e}")
+        print(f"Failed to read the file. \n Error: {e}")
         
 
 # Extract the exam solution
@@ -60,7 +60,7 @@ def extract_exam_solution(exam_paper, solution_path, client, tool_id):
         if "answer" in result:
             result = result["answer"]
         result = json.loads(result)
-
+        
         return result
     except Exception as e:
         print(f"Error when extracting solution: {e}")

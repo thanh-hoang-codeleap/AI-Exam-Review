@@ -46,9 +46,6 @@ def extract_text_from_pdf(pdf_path, output_path, client):
 
         # Initialize an empty string to hold the extracted text
         extracted_text = ""
-        
-        # List of punctuation marks that signify the end of a sentence
-        sentence_end_punctuation = ['.', '!', '?']
 
         # Iterate through each page in the result
         for i, page in enumerate(result.pages):
