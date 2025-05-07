@@ -1,6 +1,6 @@
 # frontend/Dockerfile
 
-FROM node:20-alpine AS base
+FROM node:20-alpine AS builder
 
 # Install pnpm globally
 RUN npm install -g pnpm
@@ -19,6 +19,12 @@ COPY . .
 
 # Build the application
 RUN pnpm run build
+
+FROM node:20-alpine AS runtime
+
+COPY --from=builder /app/dist /app/dist 
+COPY --from=builder /app/node_modules /app/node_modules 
+COPY --from=builder /app/package.json /app/package.json 
 
 EXPOSE 3000
 
