@@ -12,6 +12,6 @@ pypdf==5.4.0
 pytesseract==0.3.13
 openai==1.69.0
 PyMuPDF==1.25.4
-opencv-python-headless==4.11.0.86
+opencv-python==4.11.0.86
 pillow==11.2.1
 azure-ai-formrecognizer==3.3.3
