@@ -6,9 +6,6 @@ services:
       - ./backend/.env
     ports:
       - "8000:8000" 
-    networks:
-      - app-network 
-    restart: unless-stopped
 
   frontend:
     image: ghcr.io/thanh-hoang-codeleap/ai-exam-review/ai-exam-reviewer-frontend:latest
@@ -17,10 +14,3 @@ services:
       - "3000:3000"
     depends_on:
       - backend
-    networks:
-      - app-network
-    restart: unless-stopped
-
-networks:
-  app-network:
-    driver: bridge
