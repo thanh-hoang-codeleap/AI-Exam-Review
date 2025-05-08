@@ -2,6 +2,25 @@
 
 AI Exam Reviewer is designed to help teachers check students' essays for mistakes such as grammar or pronunciation errors. This application leverages AI to provide feedback and assist with the review process.
 
+## Deployment Guide
+
+### Build Applications
+
+In each `backend` and `frontend` folder, there is a Dockerfile. For each push to the `main` branch, the `docker-build` workflow will run to build Docker images and push to the GitHub Container Registry. However, the `frontend` Dockerfile is not being properly written at the moment and thus, result in a very slow build of 10-11 minutes.
+
+### Release
+
+1. Create Azure Container App Environment
+   ```
+   az containerapp env create -n <env-name> -g ai-exam-reviewer
+   ```
+2. Deploy with the following command:
+   ```
+   az containerapp compose create -g ai-exam-reviewer --environment ai-exam-reviewer-env --compose-file-path "docker-compose.yml" --registry-server "ghcr.io" --registry-username <GITHUB_USERNAME> --registry-password <GITHUB_PAT>
+   ```
+
+Note: You will need to manually add each environment variable for the backend container to work properly. The author hasn't found a solution more efficient at the moment.
+
 ## Installation
 
 ### Prerequisites
