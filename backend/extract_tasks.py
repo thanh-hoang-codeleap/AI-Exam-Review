@@ -1,4 +1,4 @@
-import cv2 
+from PIL import Image
 import pytesseract
 from pypdf import PdfReader, PdfWriter
 import os
@@ -12,8 +12,9 @@ load_dotenv()
 
 def read_first_page(image_path, output_path):
     print("Reading page 1...")
-    with open (output_path, "w") as file:        
-        img = cv2.imread(image_path)
+    with open(output_path, "w") as file:
+        # Open the image using Pillow
+        img = Image.open(image_path)
         custom_config = r'--oem 3 --psm 6 -c tessedit_create_hocr=1'
         text = pytesseract.image_to_string(img, config=custom_config)
         file.write(text)
