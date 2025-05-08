@@ -11,14 +11,19 @@ from ocr_pdf import pdf_to_image
 load_dotenv()
 
 def read_first_page(image_path, output_path):
-    print("Reading page 1...")
-    with open(output_path, "w") as file:
-        # Open the image using Pillow
-        img = Image.open(image_path)
-        custom_config = r'--oem 3 --psm 6 -c tessedit_create_hocr=1'
-        text = pytesseract.image_to_string(img, config=custom_config)
-        file.write(text)
-        file.write('\n')
+    try:
+        print("Reading page 1...")
+        with open(output_path, "w") as file:
+            print("Opening image using Pillow...")
+            # Open the image using Pillow
+            img = Image.open(image_path)
+            print("Finish opening image using Pillow")
+            custom_config = r'--oem 3 --psm 6 -c tessedit_create_hocr=1'
+            text = pytesseract.image_to_string(img, config=custom_config)
+            file.write(text)
+            file.write('\n')
+    except Exception as e:
+        print(f"Failed to read the first page. \n Error: {e}")
 
 def remove_first_page(input_pdf_path):
     # Open the PDF file
