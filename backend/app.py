@@ -142,7 +142,7 @@ def download_file(filename):
         return send_from_directory(output_folder, filename, as_attachment=True)
 
     except Exception as e:
-        return jsonify({"success": False, "error": str(e)}), 500
+        return jsonify({"success": False, "error": f"An unexpected error occurred when downloading the file: {str(e)}"}), 500
 
 # Route for processing the solution file  
 @app.route('/solution', methods=['POST'])
@@ -167,13 +167,13 @@ def process_solution_file():
         try:
             exam_paper.save(exam_path)
         except Exception as e:
-            return jsonify({"success": False, "error": f"Error saving exam paper: {str(e)}"})
+            return jsonify({"success": False, "error": f"Error saving exam paper: {str(e)}"}), 500
         
         # Save the solution file
         try:
             solution.save(solution_file_path)
         except Exception as e:
-            return jsonify({"success": False, "error": f"Error saving solution: {str(e)}"})
+            return jsonify({"success": False, "error": f"Error saving solution: {str(e)}"}), 500
         
         # Call the function with the paths to the exam paper and solution
         try:
@@ -181,7 +181,7 @@ def process_solution_file():
             result = process_task(exam_path, solution_file_path)
         except Exception as e:
             print(f"Error when processing task: {e}")
-            return jsonify({"success": False, "error": f"Error processing task: {str(e)}"})
+            return jsonify({"success": False, "error": f"Error processing task: {str(e)}"}), 500
         
         # Save the result to a JSON file
         solution_json_path = os.path.join(app.config['SOLUTION_FOLDER'], "task_output.json")
@@ -194,7 +194,7 @@ def process_solution_file():
         except Exception as e:
             print(f"Error when saving json: {e}")
             print(result)
-            return jsonify({"success": False, "error": f"Error saving solution output: {str(e)}"})
+            return jsonify({"success": False, "error": f"Error saving solution output: {str(e)}"}), 500
         
         json_data = json.dumps(result, ensure_ascii=False, sort_keys=False)
 
@@ -202,7 +202,7 @@ def process_solution_file():
     
     except Exception as e:
         print(f"Error when return response: {e}")
-        return jsonify({"success": False, "error": f"An unexpected error occurred: {str(e)}"})
+        return jsonify({"success": False, "error": f"An unexpected error occurred when processing solution file: {str(e)}"}), 500
 
 # Route for extracting the answer sheet
 @app.route('/answer', methods=['POST'])
@@ -251,7 +251,36 @@ def process_answer_sheet():
         return Response(json_data, mimetype='application/json')
         
     except Exception as e:
-        return jsonify({"success": False, "error": f"An unexpected error occurred: {str(e)}"})
+        return jsonify({"success": False, "error": f"An unexpected error occurred when checking the answers: {str(e)}"}), 500
+    
+# Route for update solution file
+@app.route('/update_solution', methods=['POST'])
+def update_solution_file():
+    try:
+        # Get the updated solution 
+        data = request.json
+        updated_solution = data['solution']
+        
+        if not updated_solution:
+            return jsonify({
+                    'success': False,
+                    'message': 'No solution data received.'
+                }), 400
+            
+        updated_solution = {'examPaper': updated_solution}
+        
+        # Update the solution file
+        with open(solution_path, "w") as file:
+            json.dump(updated_solution, file)
+        
+        return jsonify({
+                'success': True,
+                'message': 'Solution updated successfully.'
+            }), 200
+    
+    except Exception as e:
+        print(f"Error when updating soltuion. \n Error: {e}")
+        return jsonify({"success": False, "error": f"An unexpected error occurred when updating solution: {str(e)}"}), 500
 
 if __name__ == '__main__':
     app.run(debug=True,host='0.0.0.0',port=8000)

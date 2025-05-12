@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import {
   ArrowLeft,
   Upload,
@@ -15,13 +15,13 @@ import {
   Download,
   CheckCircle,
   List,
+  AlertCircle,
 } from "lucide-react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Input } from "@/components/ui/input"
 import { useSearchParams } from "next/navigation"
 import DocumentScanner from "@/components/exams/document-scanner"
@@ -71,6 +71,7 @@ interface Solution {
         solution: string[]
       }
   result?: "correct" | "incorrect"
+  score?: number
 }
 
 interface Task {
@@ -85,6 +86,19 @@ interface TaskSection {
 interface TaskData {
   [section: string]: TaskSection[]
 }
+
+// Interface for tracking score validation
+interface ScoreValidation {
+  [sectionKey: string]: {
+    [itemIndex: number]: {
+      totalScore: number
+      currentSum: number
+      isValid: boolean
+    }
+  }
+}
+
+const baseURL = "http://0.0.0.0:8000"
 
 export default function ScanText() {
   const searchParams = useSearchParams()
@@ -105,6 +119,7 @@ export default function ScanText() {
     },
     {
       id: "class7b",
+      title: "Class 7B",
       title: "Class 7B",
       exams: [
         { id: "midterm", title: "Midterm Exam", status: "Completed" },
@@ -208,6 +223,72 @@ export default function ScanText() {
   // Add this after the other state declarations
   const [teacherCorrections, setTeacherCorrections] = useState<Record<string, boolean>>({})
 
+  // Add state for editing solutions
+  const [isEditingSolution, setIsEditingSolution] = useState(false)
+  const [editedTaskData, setEditedTaskData] = useState<TaskData | null>(null)
+
+  // Add state for score validation
+  const [scoreValidation, setScoreValidation] = useState<ScoreValidation>({})
+  const [hasScoreErrors, setHasScoreErrors] = useState(false)
+
+  // Validate scores whenever editedTaskData changes
+  useEffect(() => {
+    if (isEditingSolution && editedTaskData) {
+      validateScores(editedTaskData)
+    }
+  }, [isEditingSolution, editedTaskData])
+
+  // Effect to handle tab switching when document type is selected from sidebar
+  useEffect(() => {
+    if (uploadDocType !== null) {
+      // Find and click the upload tab if it's not already active
+      const uploadTabTrigger = document.querySelector('[data-state="inactive"][value="upload"]')
+      if (uploadTabTrigger) {
+        ;(uploadTabTrigger as HTMLElement).click()
+      }
+    }
+  }, [uploadDocType])
+
+  // Function to validate scores
+  const validateScores = (data: TaskData) => {
+    const newValidation: ScoreValidation = {}
+    let hasErrors = false
+
+    Object.entries(data).forEach(([sectionName, sectionData]) => {
+      newValidation[sectionName] = {}
+
+      if (Array.isArray(sectionData)) {
+        sectionData.forEach((item, itemIndex) => {
+          const itemKey = Object.keys(item)[0]
+          const taskSection = item[itemKey]
+
+          // Calculate the sum of all question scores
+          const currentSum = taskSection.solutions.reduce((sum, solution) => {
+            return sum + (solution.score || 0)
+          }, 0)
+
+          // Check if the sum matches the total score
+          const isValid = currentSum === taskSection.score
+
+          newValidation[sectionName][itemIndex] = {
+            totalScore: taskSection.score,
+            currentSum,
+            isValid,
+          }
+
+          if (!isValid) {
+            hasErrors = true
+          }
+        })
+      }
+    })
+
+    setScoreValidation(newValidation)
+    setHasScoreErrors(hasErrors)
+
+    return !hasErrors
+  }
+
   // Update the handleFiles function to handle both solution and student files
   // 2. Add a new file type option to the handleFiles function:
   const handleFiles = (files: File[], fileType: "text" | "solution" | "student" | "exam_paper") => {
@@ -272,7 +353,7 @@ export default function ScanText() {
               const formData = new FormData()
               formData.append("file", file)
 
-              const response = await axios.post("https://backend.icypond-13acfebb.westus2.azurecontainerapps.io/upload", formData, {
+              const response = await axios.post(`${baseURL}/upload`, formData, {
                 headers: {
                   "Content-Type": "multipart/form-data",
                 },
@@ -531,7 +612,7 @@ export default function ScanText() {
       // For this example, we'll simulate downloading the file
 
       // Create a URL to the file on the server
-      const fileUrl = `https://backend.icypond-13acfebb.westus2.azurecontainerapps.io/download/${encodeURIComponent(excelFilePath)}`
+      const fileUrl = `${baseURL}/download/${encodeURIComponent(excelFilePath)}`
 
       // Create a temporary link element to trigger the download
       const link = document.createElement("a")
@@ -600,7 +681,7 @@ export default function ScanText() {
       console.log("Sending FormData to server with files")
 
       // Send the request to the server
-      const response = await axios.post("https://backend.icypond-13acfebb.westus2.azurecontainerapps.io/solution", formData, {
+      const response = await axios.post(`${baseURL}/solution`, formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
@@ -641,7 +722,40 @@ export default function ScanText() {
           solutionData = parsedData.solution
         }
 
+        // Initialize scores for each question if they don't exist
+        // and distribute the total score evenly among questions
+        Object.entries(solutionData).forEach(([sectionName, sectionData]) => {
+          if (Array.isArray(sectionData)) {
+            sectionData.forEach((item) => {
+              const itemKey = Object.keys(item)[0]
+              const taskSection = item[itemKey]
+              const totalScore = taskSection.score
+              const questionCount = taskSection.solutions.length
+
+              // If questions have no scores, distribute evenly
+              const hasScores = taskSection.solutions.some((solution) => solution.score !== undefined)
+
+              if (!hasScores && questionCount > 0) {
+                // Calculate score per question (rounded to 2 decimal places)
+                const scorePerQuestion = Math.round((totalScore / questionCount) * 100) / 100
+
+                // Distribute scores evenly
+                taskSection.solutions.forEach((solution, index) => {
+                  // For the last question, adjust to ensure sum equals total
+                  if (index === questionCount - 1) {
+                    const currentSum = taskSection.solutions.slice(0, index).reduce((sum, s) => sum + (s.score || 0), 0)
+                    solution.score = Math.round((totalScore - currentSum) * 100) / 100
+                  } else {
+                    solution.score = scorePerQuestion
+                  }
+                })
+              }
+            })
+          }
+        })
+
         setTaskData(solutionData)
+        validateScores(solutionData)
 
         toast({
           title: "Processing complete",
@@ -692,7 +806,7 @@ export default function ScanText() {
       console.log("Sending student exam to server for processing")
 
       // Send the request to the server
-      const response = await axios.post("https://backend.icypond-13acfebb.westus2.azurecontainerapps.io/answer", formData, {
+      const response = await axios.post(`${baseURL}/answer`, formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },
@@ -759,6 +873,317 @@ export default function ScanText() {
       title: isCorrect ? "Marked as correct" : "Marked as incorrect",
       description: isCorrect ? "The answer has been approved as correct" : "The answer has been marked as incorrect",
     })
+  }
+
+  // Function to handle entering edit mode for solutions
+  const handleEditSolution = () => {
+    // Create a deep copy of the taskData to edit
+    setEditedTaskData(JSON.parse(JSON.stringify(taskData)))
+    setIsEditingSolution(true)
+  }
+
+  // Function to handle updating a solution answer
+  const handleUpdateSolutionAnswer = (
+    sectionName: string,
+    itemIndex: number,
+    solutionIndex: number,
+    answerIndex: number | null,
+    newValue: string,
+  ) => {
+    if (!editedTaskData) return
+
+    setEditedTaskData((prevData) => {
+      if (!prevData) return null
+
+      const newData = { ...prevData }
+      const sectionData = [...newData[sectionName]]
+      const item = { ...sectionData[itemIndex] }
+
+      // Get the first key in the item object
+      const itemKey = Object.keys(item)[0]
+      const taskSection = { ...item[itemKey] }
+
+      // Create a new solutions array
+      const solutions = [...taskSection.solutions]
+      const solution = { ...solutions[solutionIndex] }
+
+      // Update the answer based on its type
+      if (typeof solution.answer === "object" && "solution" in solution.answer) {
+        // Handle object with solution property
+        const answer = { ...solution.answer }
+        if (answerIndex !== null && Array.isArray(answer.solution)) {
+          // Update specific array item
+          const newSolution = [...answer.solution]
+          newSolution[answerIndex] = newValue
+          answer.solution = newSolution
+        } else {
+          // Replace entire solution
+          answer.solution = [newValue]
+        }
+        solution.answer = answer
+      } else if (Array.isArray(solution.answer)) {
+        // Handle array answer
+        const newAnswer = [...solution.answer]
+        if (answerIndex !== null) {
+          newAnswer[answerIndex] = newValue
+        } else {
+          // If no index provided, replace the first item
+          if (newAnswer.length > 0) {
+            newAnswer[0] = newValue
+          } else {
+            newAnswer.push(newValue)
+          }
+        }
+        solution.answer = newAnswer
+      } else {
+        // Handle string or other primitive answer
+        solution.answer = [newValue]
+      }
+
+      // Update the solution in the solutions array
+      solutions[solutionIndex] = solution
+
+      // Update the task section
+      taskSection.solutions = solutions
+
+      // Update the item
+      item[itemKey] = taskSection
+
+      // Update the section data
+      sectionData[itemIndex] = item
+
+      // Update the section in the new data
+      newData[sectionName] = sectionData
+
+      return newData
+    })
+  }
+
+  // Function to handle updating a solution score
+  const handleUpdateSolutionScore = (
+    sectionName: string,
+    itemIndex: number,
+    solutionIndex: number,
+    newScore: number,
+  ) => {
+    if (!editedTaskData) return
+
+    setEditedTaskData((prevData) => {
+      if (!prevData) return null
+
+      const newData = { ...prevData }
+      const sectionData = [...newData[sectionName]]
+      const item = { ...sectionData[itemIndex] }
+
+      // Get the first key in the item object
+      const itemKey = Object.keys(item)[0]
+      const taskSection = { ...item[itemKey] }
+      const totalSectionScore = taskSection.score
+
+      // Create a new solutions array
+      const solutions = [...taskSection.solutions]
+
+      // Calculate current sum excluding the solution being edited
+      const currentSumExcludingThis = solutions.reduce((sum, solution, idx) => {
+        return idx === solutionIndex ? sum : sum + (solution.score || 0)
+      }, 0)
+
+      // If new score would make total exceed section total, adjust it
+      if (currentSumExcludingThis + newScore > totalSectionScore) {
+        newScore = Math.max(0, totalSectionScore - currentSumExcludingThis)
+      }
+
+      // Update the score (allow decimal values)
+      const solution = { ...solutions[solutionIndex] }
+      solution.score = newScore
+
+      // Update the solution in the solutions array
+      solutions[solutionIndex] = solution
+
+      // Update the task section
+      taskSection.solutions = solutions
+
+      // Update the item
+      item[itemKey] = taskSection
+
+      // Update the section data
+      sectionData[itemIndex] = item
+
+      // Update the section in the new data
+      newData[sectionName] = sectionData
+
+      return newData
+    })
+  }
+
+  // Function to distribute remaining points evenly
+  const distributeRemainingPoints = (sectionName: string, itemIndex: number, excludeSolutionIndex: number) => {
+    if (!editedTaskData) return
+
+    setEditedTaskData((prevData) => {
+      if (!prevData) return null
+
+      const newData = { ...prevData }
+      const sectionData = [...newData[sectionName]]
+      const item = { ...sectionData[itemIndex] }
+
+      // Get the first key in the item object
+      const itemKey = Object.keys(item)[0]
+      const taskSection = { ...item[itemKey] }
+
+      const totalScore = taskSection.score
+      const solutions = [...taskSection.solutions]
+
+      // Calculate current sum excluding the solution being edited
+      const currentSum = solutions.reduce((sum, solution, idx) => {
+        return idx === excludeSolutionIndex ? sum : sum + (solution.score || 0)
+      }, 0)
+
+      // Calculate remaining points
+      const remainingPoints = totalScore - currentSum
+
+      // Update the excluded solution's score
+      if (solutions[excludeSolutionIndex]) {
+        solutions[excludeSolutionIndex] = {
+          ...solutions[excludeSolutionIndex],
+          score: Math.max(0, remainingPoints), // Ensure score is not negative
+        }
+      }
+
+      // Update the task section
+      taskSection.solutions = solutions
+
+      // Update the item
+      item[itemKey] = taskSection
+
+      // Update the section data
+      sectionData[itemIndex] = item
+
+      // Update the section in the new data
+      newData[sectionName] = sectionData
+
+      return newData
+    })
+  }
+
+  // Function to auto-distribute scores evenly
+  const distributeScoresEvenly = (sectionName: string, itemIndex: number) => {
+    if (!editedTaskData) return
+
+    setEditedTaskData((prevData) => {
+      if (!prevData) return null
+
+      const newData = { ...prevData }
+      const sectionData = [...newData[sectionName]]
+      const item = { ...sectionData[itemIndex] }
+
+      // Get the first key in the item object
+      const itemKey = Object.keys(item)[0]
+      const taskSection = { ...item[itemKey] }
+
+      const totalScore = taskSection.score
+      const solutions = [...taskSection.solutions]
+      const questionCount = solutions.length
+
+      if (questionCount > 0) {
+        // Calculate score per question (rounded to 2 decimal places)
+        const scorePerQuestion = Math.round((totalScore / questionCount) * 100) / 100
+
+        // Distribute scores evenly
+        solutions.forEach((solution, index) => {
+          // For the last question, adjust to ensure sum equals total
+          if (index === questionCount - 1) {
+            const currentSum = solutions.slice(0, index).reduce((sum, s) => sum + (s.score || 0), 0)
+            solutions[index] = {
+              ...solution,
+              score: Math.round((totalScore - currentSum) * 100) / 100,
+            }
+          } else {
+            solutions[index] = {
+              ...solution,
+              score: scorePerQuestion,
+            }
+          }
+        })
+      }
+
+      // Update the task section
+      taskSection.solutions = solutions
+
+      // Update the item
+      item[itemKey] = taskSection
+
+      // Update the section data
+      sectionData[itemIndex] = item
+
+      // Update the section in the new data
+      newData[sectionName] = sectionData
+
+      return newData
+    })
+  }
+
+  // Find the handleSaveSolution function and replace it with this updated version:
+
+  // Function to save the updated solution
+  const handleSaveSolution = async () => {
+    if (!editedTaskData) return
+
+    // Validate scores before saving
+    const isValid = validateScores(editedTaskData)
+
+    if (!isValid) {
+      toast({
+        title: "Score Warning",
+        description: "The sum of question scores doesn't equal the section total score. Saving anyway.",
+        variant: "warning",
+      })
+    }
+
+    try {
+      // Show loading state
+      toast({
+        title: "Saving...",
+        description: "Sending updated solution to server",
+      })
+
+      // Send the updated data to the server
+      const response = await axios.post(`${baseURL}/update_solution`, {
+        solution: editedTaskData,
+      })
+
+      // Check if the request was successful
+      if (response.data.success) {
+        // Update the local state with the edited data
+        setTaskData(editedTaskData)
+        setIsEditingSolution(false)
+        setHasScoreErrors(false)
+
+        toast({
+          title: "Solution updated",
+          description: "The solution has been successfully updated on the server.",
+        })
+      } else {
+        // Handle server-side validation errors or other issues
+        toast({
+          title: "Update Warning",
+          description: response.data.message || "Solution was saved with warnings.",
+          variant: "warning",
+        })
+
+        // Still update local state if the server accepted the data
+        setTaskData(editedTaskData)
+        setIsEditingSolution(false)
+        setHasScoreErrors(false)
+      }
+    } catch (error) {
+      console.error("Error updating solution:", error)
+      toast({
+        title: "Error",
+        description: "Failed to update solution on the server. Please try again.",
+        variant: "destructive",
+      })
+    }
   }
 
   return (
@@ -1240,115 +1665,286 @@ export default function ScanText() {
                         {/* Display extracted task data */}
                         {taskData && (
                           <div className="mt-6 bg-white border rounded-lg p-4">
-                            <h4 className="text-base font-medium mb-3 flex items-center">
-                              <List className="mr-2 h-5 w-5 text-green-600" />
-                              Extracted Tasks & Solutions
-                            </h4>
+                            <div className="flex justify-between items-center mb-3">
+                              <h4 className="text-base font-medium flex items-center">
+                                <List className="mr-2 h-5 w-5 text-green-600" />
+                                Extracted Tasks & Solutions
+                              </h4>
+                              <div className="flex gap-2">
+                                {isEditingSolution && hasScoreErrors && (
+                                  <div className="flex items-center text-amber-600 text-xs mr-2">
+                                    <AlertCircle className="h-4 w-4 mr-1" />
+                                    Score totals don't match
+                                  </div>
+                                )}
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={isEditingSolution ? handleSaveSolution : handleEditSolution}
+                                >
+                                  {isEditingSolution ? "Update Solution" : "Edit"}
+                                </Button>
+                              </div>
+                            </div>
                             <div className="max-h-[400px] overflow-y-auto">
-                              {Object.entries(taskData).map(([sectionName, sectionData]) => (
-                                <div key={sectionName} className="mb-6">
-                                  <h5 className="text-sm font-semibold bg-blue-50 p-2 rounded mb-3">{sectionName}</h5>
+                              {Object.entries(isEditingSolution ? editedTaskData || {} : taskData).map(
+                                ([sectionName, sectionData]) => (
+                                  <div key={sectionName} className="mb-6">
+                                    <h5 className="text-sm font-semibold bg-blue-50 p-2 rounded mb-3">{sectionName}</h5>
 
-                                  {Array.isArray(sectionData) ? (
-                                    sectionData.map((item, itemIndex) => {
-                                      // Get the first key in the item object
-                                      const itemKey = Object.keys(item)[0]
-                                      const taskSection = item[itemKey]
+                                    {Array.isArray(sectionData) ? (
+                                      sectionData.map((item, itemIndex) => {
+                                        // Get the first key in the item object
+                                        const itemKey = Object.keys(item)[0]
+                                        const taskSection = item[itemKey]
 
-                                      return (
-                                        <div key={itemIndex} className="mb-4">
-                                          <div className="flex justify-between items-center mb-2">
-                                            <span className="text-sm font-medium">{itemKey}</span>
-                                            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                                              Total Score: {taskSection.score}
-                                            </span>
-                                          </div>
+                                        // Get validation info for this section
+                                        const validation = scoreValidation[sectionName]?.[itemIndex]
+                                        const isValid = validation?.isValid
+                                        const currentSum = validation?.currentSum || 0
+                                        const totalScore = validation?.totalScore || taskSection.score
 
-                                          <div className="space-y-4">
-                                            {taskSection.solutions.map((solution, index) => (
-                                              <div key={index} className="border-b pb-3">
-                                                <p className="text-sm font-medium">{solution.question}</p>
-                                                <div className="mt-2">
-                                                  <span className="text-xs font-medium text-gray-500">Answer:</span>
-                                                  <div className="mt-1">
-                                                    {Array.isArray(solution.answer) ? (
-                                                      solution.answer.map((ans, i) => (
-                                                        <p key={i} className="text-sm bg-green-50 p-2 rounded mb-1">
-                                                          {ans}
-                                                        </p>
-                                                      ))
-                                                    ) : (
-                                                      <p className="text-sm bg-green-50 p-2 rounded mb-1">
-                                                        {String(solution.answer)}
-                                                      </p>
-                                                    )}
+                                        return (
+                                          <div key={itemIndex} className="mb-4">
+                                            <div className="flex justify-between items-center mb-2">
+                                              <span className="text-sm font-medium">{itemKey}</span>
+                                              <div className="flex items-center">
+                                                {isEditingSolution && (
+                                                  <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-6 text-xs mr-2"
+                                                    onClick={() => distributeScoresEvenly(sectionName, itemIndex)}
+                                                  >
+                                                    Distribute Evenly
+                                                  </Button>
+                                                )}
+                                                <span
+                                                  className={`text-xs px-2 py-1 rounded-full ${
+                                                    isEditingSolution && !isValid
+                                                      ? "bg-amber-100 text-amber-800"
+                                                      : "bg-blue-100 text-blue-800"
+                                                  }`}
+                                                >
+                                                  {isEditingSolution
+                                                    ? `Score: ${currentSum}/${totalScore}`
+                                                    : `Total Score: ${taskSection.score}`}
+                                                </span>
+                                              </div>
+                                            </div>
+
+                                            <div className="space-y-4">
+                                              {taskSection.solutions.map((solution, solutionIndex) => (
+                                                <div key={solutionIndex} className="border-b pb-3">
+                                                  {/* Question and Score */}
+                                                  <div className="flex justify-between items-start mb-2">
+                                                    <p className="text-sm font-medium">{solution.question}</p>
+                                                    <div className="flex items-center">
+                                                      <span className="text-xs text-gray-500 mr-2">Score:</span>
+                                                      {isEditingSolution ? (
+                                                        <div className="flex items-center">
+                                                          <Input
+                                                            type="number"
+                                                            value={solution.score || 0}
+                                                            onChange={(e) =>
+                                                              handleUpdateSolutionScore(
+                                                                sectionName,
+                                                                itemIndex,
+                                                                solutionIndex,
+                                                                Number.parseFloat(e.target.value) || 0,
+                                                              )
+                                                            }
+                                                            className="w-16 h-7 text-sm p-1"
+                                                            min="0"
+                                                            step="0.1"
+                                                          />
+                                                          <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="h-7 w-7 p-0 ml-1"
+                                                            onClick={() =>
+                                                              distributeRemainingPoints(
+                                                                sectionName,
+                                                                itemIndex,
+                                                                solutionIndex,
+                                                              )
+                                                            }
+                                                            title="Auto-adjust this score to balance the total"
+                                                          >
+                                                            <Check className="h-3 w-3" />
+                                                          </Button>
+                                                        </div>
+                                                      ) : (
+                                                        <span className="text-xs font-medium bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                                                          {solution.score || 0}
+                                                        </span>
+                                                      )}
+                                                    </div>
+                                                  </div>
+                                                  <div className="mt-2">
+                                                    <span className="text-xs font-medium text-gray-500">Answer:</span>
+                                                    <div className="mt-1">
+                                                      {isEditingSolution ? (
+                                                        // Editable mode
+                                                        <>
+                                                          {Array.isArray(solution.answer) ? (
+                                                            solution.answer.map((ans, i) => (
+                                                              <div key={i} className="mb-1">
+                                                                <Input
+                                                                  value={ans}
+                                                                  onChange={(e) =>
+                                                                    handleUpdateSolutionAnswer(
+                                                                      sectionName,
+                                                                      itemIndex,
+                                                                      solutionIndex,
+                                                                      i,
+                                                                      e.target.value,
+                                                                    )
+                                                                  }
+                                                                  className="text-sm p-2 bg-green-50"
+                                                                />
+                                                              </div>
+                                                            ))
+                                                          ) : typeof solution.answer === "object" &&
+                                                            "solution" in solution.answer ? (
+                                                            Array.isArray(solution.answer.solution) ? (
+                                                              solution.answer.solution.map((ans, i) => (
+                                                                <div key={i} className="mb-1">
+                                                                  <Input
+                                                                    value={ans}
+                                                                    onChange={(e) =>
+                                                                      handleUpdateSolutionAnswer(
+                                                                        sectionName,
+                                                                        itemIndex,
+                                                                        solutionIndex,
+                                                                        i,
+                                                                        e.target.value,
+                                                                      )
+                                                                    }
+                                                                    className="text-sm p-2 bg-green-50"
+                                                                  />
+                                                                </div>
+                                                              ))
+                                                            ) : (
+                                                              <Input
+                                                                value={String(solution.answer.solution)}
+                                                                onChange={(e) =>
+                                                                  handleUpdateSolutionAnswer(
+                                                                    sectionName,
+                                                                    itemIndex,
+                                                                    solutionIndex,
+                                                                    null,
+                                                                    e.target.value,
+                                                                  )
+                                                                }
+                                                                className="text-sm p-2 bg-green-50"
+                                                              />
+                                                            )
+                                                          ) : (
+                                                            <Input
+                                                              value={String(solution.answer)}
+                                                              onChange={(e) =>
+                                                                handleUpdateSolutionAnswer(
+                                                                  sectionName,
+                                                                  itemIndex,
+                                                                  solutionIndex,
+                                                                  null,
+                                                                  e.target.value,
+                                                                )
+                                                              }
+                                                              className="text-sm p-2 bg-green-50"
+                                                            />
+                                                          )}
+                                                        </>
+                                                      ) : (
+                                                        // View mode
+                                                        <>
+                                                          {Array.isArray(solution.answer) ? (
+                                                            solution.answer.map((ans, i) => (
+                                                              <p
+                                                                key={i}
+                                                                className="text-sm bg-green-50 p-2 rounded mb-1"
+                                                              >
+                                                                {ans}
+                                                              </p>
+                                                            ))
+                                                          ) : typeof solution.answer === "object" &&
+                                                            "solution" in solution.answer ? (
+                                                            Array.isArray(solution.answer.solution) ? (
+                                                              solution.answer.solution.map((ans, i) => (
+                                                                <p
+                                                                  key={i}
+                                                                  className="text-sm bg-green-50 p-2 rounded mb-1"
+                                                                >
+                                                                  {String(ans)}
+                                                                </p>
+                                                              ))
+                                                            ) : (
+                                                              <p className="text-sm bg-green-50 p-2 rounded mb-1">
+                                                                {String(solution.answer.solution)}
+                                                              </p>
+                                                            )
+                                                          ) : (
+                                                            <p className="text-sm bg-green-50 p-2 rounded mb-1">
+                                                              {String(solution.answer)}
+                                                            </p>
+                                                          )}
+                                                        </>
+                                                      )}
+                                                    </div>
                                                   </div>
                                                 </div>
-                                              </div>
-                                            ))}
+                                              ))}
+                                            </div>
                                           </div>
-                                        </div>
-                                      )
-                                    })
-                                  ) : (
-                                    <div className="text-sm text-gray-500 p-2">No data available for this section</div>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                            <div className="mt-4 flex justify-end">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  navigator.clipboard.writeText(JSON.stringify(taskData, null, 2))
-                                  toast({
-                                    title: "Copied to clipboard",
-                                    description: "Tasks and solutions copied as JSON",
-                                  })
-                                }}
-                              >
-                                <Clipboard className="mr-2 h-4 w-4" />
-                                Copy as JSON
-                              </Button>
+                                        )
+                                      })
+                                    ) : (
+                                      <p className="text-sm text-gray-500">No tasks found in this section.</p>
+                                    )}
+                                  </div>
+                                ),
+                              )}
                             </div>
                           </div>
                         )}
 
                         {/* Student File Upload */}
-                        <div className="space-y-2 mt-6">
-                          <Label htmlFor="student-upload">Student's Exam</Label>
-                          <div
-                            className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
-                              isDragging ? "border-blue-500 bg-blue-50" : "border-gray-300"
-                            }`}
-                            onDragOver={(e) => {
-                              e.preventDefault()
-                              setIsDragging(true)
-                            }}
-                            onDragLeave={() => setIsDragging(false)}
-                            onDrop={(e) => handleDrop(e, "student")}
-                            onClick={() => studentFileInputRef.current?.click()}
-                          >
-                            <div className="flex flex-col items-center">
-                              <div className="bg-blue-50 p-3 rounded-full mb-3">
-                                <FileText className="h-8 w-8 text-blue-500" />
+                        {taskData && (
+                          <div className="space-y-2 mt-6">
+                            <Label htmlFor="student-upload">Student's Exam File (with answers)</Label>
+                            <div
+                              className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
+                                isDragging ? "border-blue-500 bg-blue-50" : "border-gray-300"
+                              }`}
+                              onDragOver={(e) => {
+                                e.preventDefault()
+                                setIsDragging(true)
+                              }}
+                              onDragLeave={() => setIsDragging(false)}
+                              onDrop={(e) => handleDrop(e, "student")}
+                              onClick={() => studentFileInputRef.current?.click()}
+                            >
+                              <div className="flex flex-col items-center">
+                                <div className="bg-yellow-50 p-3 rounded-full mb-3">
+                                  <FileText className="h-8 w-8 text-yellow-500" />
+                                </div>
+                                <h3 className="text-base font-medium mb-1">Upload Student's Exam</h3>
+                                <p className="text-sm text-gray-500 mb-2">
+                                  Drag and drop student's exam file here, or click to browse
+                                </p>
+                                <input
+                                  id="student-upload"
+                                  type="file"
+                                  ref={studentFileInputRef}
+                                  accept=".pdf"
+                                  className="hidden"
+                                  onChange={(e) => handleFileInput(e, "student")}
+                                />
                               </div>
-                              <h3 className="text-base font-medium mb-1">Upload Student's Exam</h3>
-                              <p className="text-sm text-gray-500 mb-2">
-                                Drag and drop student file here, or click to browse
-                              </p>
-                              <input
-                                id="student-upload"
-                                type="file"
-                                ref={studentFileInputRef}
-                                accept=".pdf"
-                                className="hidden"
-                                onChange={(e) => handleFileInput(e, "student")}
-                              />
                             </div>
                           </div>
-                        </div>
+                        )}
 
                         {studentFile.length > 0 && (
                           <div className="mt-4">
@@ -1399,7 +1995,7 @@ export default function ScanText() {
                           <Button
                             className="w-full mt-4"
                             onClick={processStudentExam}
-                            disabled={isProcessingStudentExam || !taskData}
+                            disabled={isProcessingStudentExam}
                           >
                             {isProcessingStudentExam ? (
                               <>
@@ -1415,12 +2011,12 @@ export default function ScanText() {
                           </Button>
                         )}
 
-                        {/* Display student exam results */}
+                        {/* Display student exam data */}
                         {studentExamData && (
                           <div className="mt-6 bg-white border rounded-lg p-4">
-                            <h4 className="text-base font-medium mb-3 flex items-center">
-                              <List className="mr-2 h-5 w-5 text-blue-600" />
-                              Student's Exam Results
+                            <h4 className="text-base font-medium flex items-center mb-3">
+                              <List className="mr-2 h-5 w-5 text-yellow-600" />
+                              Student's Exam Analysis
                             </h4>
                             <div className="max-h-[400px] overflow-y-auto">
                               {Object.entries(studentExamData).map(([sectionName, sectionData]) => (
@@ -1435,172 +2031,41 @@ export default function ScanText() {
 
                                       return (
                                         <div key={itemIndex} className="mb-4">
-                                          <div className="flex justify-between items-center mb-2">
-                                            <span className="text-sm font-medium">{itemKey}</span>
-                                            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                                              Total Score: {taskSection.score}
-                                            </span>
-                                          </div>
-
+                                          <span className="text-sm font-medium">{itemKey}</span>
                                           <div className="space-y-4">
-                                            {taskSection.solutions.map((solution, index) => (
-                                              <div key={index} className="border-b pb-3">
+                                            {taskSection.solutions.map((solution, solutionIndex) => (
+                                              <div key={solutionIndex} className="border-b pb-3">
+                                                {/* Question */}
                                                 <p className="text-sm font-medium">{solution.question}</p>
-
-                                                {solution.result &&
-                                                solution.answer &&
-                                                typeof solution.answer === "object" &&
-                                                "solution" in solution.answer ? (
-                                                  // New format with student and solution answers
-                                                  <div className="mt-2 space-y-2">
-                                                    {/* Correct answer */}
-                                                    <div>
-                                                      <span className="text-xs font-medium text-gray-500">
-                                                        Correct answer:
-                                                      </span>
-                                                      <div className="mt-1">
-                                                        {Array.isArray(solution.answer.solution) ? (
-                                                          solution.answer.solution.map((ans, i) => (
-                                                            <p key={i} className="text-sm bg-green-50 p-2 rounded mb-1">
-                                                              {ans}
-                                                            </p>
-                                                          ))
-                                                        ) : (
-                                                          <p className="text-sm bg-green-50 p-2 rounded mb-1">
-                                                            {String(solution.answer.solution)}
-                                                          </p>
-                                                        )}
-                                                      </div>
-                                                    </div>
-
-                                                    {/* Student answer */}
-                                                    <div>
-                                                      <span className="text-xs font-medium text-gray-500">
-                                                        Student answer:
-                                                      </span>
-                                                      <div className="mt-1 flex items-start gap-2">
-                                                        <div className="flex-1">
-                                                          {Array.isArray(solution.answer.student) ? (
-                                                            solution.answer.student.map((ans, i) => (
-                                                              <p
-                                                                key={i}
-                                                                className={`text-sm p-2 rounded mb-1 ${
-                                                                  solution.result === "correct" ||
-                                                                  teacherCorrections[
-                                                                    `${sectionName}-${itemIndex}-${index}`
-                                                                  ] === true
-                                                                    ? "bg-green-50"
-                                                                    : "bg-red-50"
-                                                                }`}
-                                                              >
-                                                                {ans}
-                                                              </p>
-                                                            ))
-                                                          ) : (
-                                                            <p
-                                                              className={`text-sm p-2 rounded mb-1 ${
-                                                                solution.result === "correct" ||
-                                                                teacherCorrections[
-                                                                  `${sectionName}-${itemIndex}-${index}`
-                                                                ] === true
-                                                                  ? "bg-green-50"
-                                                                  : "bg-red-50"
-                                                              }`}
-                                                            >
-                                                              {String(solution.answer.student)}
-                                                            </p>
-                                                          )}
-                                                        </div>
-
-                                                        {/* Toggle for teacher approval */}
-                                                        {solution.result === "incorrect" && (
-                                                          <div className="flex flex-col space-y-1">
-                                                            <div className="flex items-center space-x-2">
-                                                              <input
-                                                                type="radio"
-                                                                id={`${sectionName}-${itemIndex}-${index}-correct`}
-                                                                name={`${sectionName}-${itemIndex}-${index}`}
-                                                                checked={
-                                                                  teacherCorrections[
-                                                                    `${sectionName}-${itemIndex}-${index}`
-                                                                  ] === true
-                                                                }
-                                                                onChange={() =>
-                                                                  handleMarkAsCorrect(
-                                                                    `${sectionName}-${itemIndex}-${index}`,
-                                                                    true,
-                                                                  )
-                                                                }
-                                                                className="text-green-600 focus:ring-green-600"
-                                                              />
-                                                              <Label
-                                                                htmlFor={`${sectionName}-${itemIndex}-${index}-correct`}
-                                                                className="text-xs text-green-700"
-                                                              >
-                                                                richtig
-                                                              </Label>
-                                                            </div>
-                                                            <div className="flex items-center space-x-2">
-                                                              <input
-                                                                type="radio"
-                                                                id={`${sectionName}-${itemIndex}-${index}-incorrect`}
-                                                                name={`${sectionName}-${itemIndex}-${index}`}
-                                                                checked={
-                                                                  teacherCorrections[
-                                                                    `${sectionName}-${itemIndex}-${index}`
-                                                                  ] === false ||
-                                                                  teacherCorrections[
-                                                                    `${sectionName}-${itemIndex}-${index}`
-                                                                  ] === undefined
-                                                                }
-                                                                onChange={() =>
-                                                                  handleMarkAsCorrect(
-                                                                    `${sectionName}-${itemIndex}-${index}`,
-                                                                    false,
-                                                                  )
-                                                                }
-                                                                className="text-red-600 focus:ring-red-600"
-                                                              />
-                                                              <Label
-                                                                htmlFor={`${sectionName}-${itemIndex}-${index}-incorrect`}
-                                                                className="text-xs text-red-700"
-                                                              >
-                                                                falsch
-                                                              </Label>
-                                                            </div>
-                                                          </div>
-                                                        )}
-
-                                                        {/* Show correct indicator for correct answers */}
-                                                        {(solution.result === "correct" ||
-                                                          teacherCorrections[`${sectionName}-${itemIndex}-${index}`] ===
-                                                            true) && (
-                                                          <div className="flex items-center text-green-600">
-                                                            <CheckCircle className="h-5 w-5" />
-                                                          </div>
-                                                        )}
-                                                      </div>
-                                                    </div>
-                                                  </div>
-                                                ) : (
-                                                  // Old format fallback
-                                                  <div className="mt-2">
-                                                    <span className="text-xs font-medium text-gray-500">Answer:</span>
-                                                    <div className="mt-1">
-                                                      {Array.isArray(solution.answer) ? (
-                                                        solution.answer.map((ans, i) => (
-                                                          <p key={i} className="text-sm bg-blue-50 p-2 rounded mb-1">
-                                                            {ans}
+                                                <div className="mt-2">
+                                                  <span className="text-xs font-medium text-gray-500">Answer:</span>
+                                                  <div className="mt-1">
+                                                    {Array.isArray(solution.answer) ? (
+                                                      solution.answer.map((ans, i) => (
+                                                        <p key={i} className="text-sm bg-yellow-50 p-2 rounded mb-1">
+                                                          {ans}
+                                                        </p>
+                                                      ))
+                                                    ) : typeof solution.answer === "object" &&
+                                                      "solution" in solution.answer ? (
+                                                      Array.isArray(solution.answer.solution) ? (
+                                                        solution.answer.solution.map((ans, i) => (
+                                                          <p key={i} className="text-sm bg-yellow-50 p-2 rounded mb-1">
+                                                            {String(ans)}
                                                           </p>
                                                         ))
                                                       ) : (
-                                                        <p className="text-sm bg-blue-50 p-2 rounded mb-1">
-                                                          {String(solution.answer)}
+                                                        <p className="text-sm bg-yellow-50 p-2 rounded mb-1">
+                                                          {String(solution.answer.solution)}
                                                         </p>
-                                                      )}
-                                                    </div>
+                                                      )
+                                                    ) : (
+                                                      <p className="text-sm bg-yellow-50 p-2 rounded mb-1">
+                                                        {String(solution.answer)}
+                                                      </p>
+                                                    )}
                                                   </div>
-                                                )}
+                                                </div>
                                               </div>
                                             ))}
                                           </div>
@@ -1608,26 +2073,10 @@ export default function ScanText() {
                                       )
                                     })
                                   ) : (
-                                    <div className="text-sm text-gray-500 p-2">No data available for this section</div>
+                                    <p className="text-sm text-gray-500">No tasks found in this section.</p>
                                   )}
                                 </div>
                               ))}
-                            </div>
-                            <div className="mt-4 flex justify-end">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => {
-                                  navigator.clipboard.writeText(JSON.stringify(studentExamData, null, 2))
-                                  toast({
-                                    title: "Copied to clipboard",
-                                    description: "Student exam results copied as JSON",
-                                  })
-                                }}
-                              >
-                                <Clipboard className="mr-2 h-4 w-4" />
-                                Copy as JSON
-                              </Button>
                             </div>
                           </div>
                         )}
@@ -1652,26 +2101,20 @@ export default function ScanText() {
             </Tabs>
           </div>
 
-          {/* Sidebar */}
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Document Details</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {/* Class Selection */}
+          {/* Sidebar with Document Details and Scanning Tips */}
+          <div className="lg:col-span-1 space-y-6">
+            <Card className="shadow-sm">
+              <CardContent className="pt-6">
+                <h2 className="text-2xl font-bold mb-6">Document Details</h2>
+
+                <div className="space-y-6">
                   <div className="space-y-2">
                     <Label htmlFor="class-select">Class</Label>
                     <select
                       id="class-select"
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="w-full p-2 border rounded-md bg-white"
                       value={selectedClass}
-                      onChange={(e) => {
-                        setSelectedClass(e.target.value)
-                        setSelectedExam("")
-                        setSelectedStudent("")
-                      }}
+                      onChange={(e) => setSelectedClass(e.target.value)}
                     >
                       <option value="">Select a class</option>
                       {classes.map((c) => (
@@ -1682,37 +2125,31 @@ export default function ScanText() {
                     </select>
                   </div>
 
-                  {/* Exam Selection */}
                   <div className="space-y-2">
                     <Label htmlFor="exam-select">Exam</Label>
                     <select
                       id="exam-select"
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      className="w-full p-2 border rounded-md bg-white"
                       value={selectedExam}
-                      onChange={(e) => {
-                        setSelectedExam(e.target.value)
-                        setSelectedStudent("")
-                      }}
-                      disabled={!selectedClass}
+                      onChange={(e) => setSelectedExam(e.target.value)}
+                      disabled={!currentClass}
                     >
                       <option value="">Select an exam</option>
                       {currentClass?.exams.map((exam) => (
                         <option key={exam.id} value={exam.id}>
-                          {exam.title} ({exam.status})
+                          {exam.title}
                         </option>
                       ))}
                     </select>
                   </div>
 
-                  {/* Student Selection */}
                   <div className="space-y-2">
-                    <Label htmlFor="student">Student</Label>
+                    <Label htmlFor="student-select">Student</Label>
                     <select
-                      id="student"
-                      className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                      id="student-select"
+                      className="w-full p-2 border rounded-md bg-white"
                       value={selectedStudent}
                       onChange={(e) => setSelectedStudent(e.target.value)}
-                      disabled={!selectedExam}
                     >
                       <option value="">Select a student</option>
                       {students.map((student) => (
@@ -1723,35 +2160,56 @@ export default function ScanText() {
                     </select>
                   </div>
 
-                  {/* Document Type Selection */}
                   <div className="space-y-2">
-                    <Label htmlFor="doc-type">Document Type</Label>
-                    <RadioGroup
-                      value={docType}
-                      onValueChange={(value) => {
-                        setDocType(value)
-                        // Update uploadDocType when radio buttons change
-                        if (value === "task") {
-                          setUploadDocType("tasks")
-                        } else if (value === "text") {
-                          setUploadDocType("text")
-                        }
-                      }}
-                      id="doc-type"
-                      disabled={!selectedExam}
-                    >
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="task" id="task" />
-                        <Label htmlFor="task">Task</Label>
+                    <Label>Document Type</Label>
+                    <div className="space-y-2">
+                      <div className="flex items-center">
+                        <input
+                          type="radio"
+                          id="task-type"
+                          name="docType"
+                          value="task"
+                          checked={docType === "task"}
+                          onChange={() => {
+                            setDocType("task")
+                            setUploadDocType("tasks")
+                            // Ensure we're on the upload tab
+                            const uploadTabTrigger = document.querySelector('[data-state="inactive"][value="upload"]')
+                            if (uploadTabTrigger) {
+                              ;(uploadTabTrigger as HTMLElement).click()
+                            }
+                          }}
+                          className="h-4 w-4 mr-2"
+                        />
+                        <Label htmlFor="task-type" className="cursor-pointer">
+                          Task
+                        </Label>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="text" id="text" />
-                        <Label htmlFor="text">Text</Label>
+                      <div className="flex items-center">
+                        <input
+                          type="radio"
+                          id="text-type"
+                          name="docType"
+                          value="text"
+                          checked={docType === "text"}
+                          onChange={() => {
+                            setDocType("text")
+                            setUploadDocType("text")
+                            // Ensure we're on the upload tab
+                            const uploadTabTrigger = document.querySelector('[data-state="inactive"][value="upload"]')
+                            if (uploadTabTrigger) {
+                              ;(uploadTabTrigger as HTMLElement).click()
+                            }
+                          }}
+                          className="h-4 w-4 mr-2"
+                        />
+                        <Label htmlFor="text-type" className="cursor-pointer">
+                          Text
+                        </Label>
                       </div>
-                    </RadioGroup>
+                    </div>
                   </div>
 
-                  {/* Document Title */}
                   <div className="space-y-2">
                     <Label htmlFor="doc-title">Document Title</Label>
                     <Input
@@ -1759,38 +2217,32 @@ export default function ScanText() {
                       placeholder="Enter document title"
                       value={docTitle}
                       onChange={(e) => setDocTitle(e.target.value)}
-                      disabled={!selectedExam}
                     />
                   </div>
 
-                  {/* Submit Button */}
-                  <Button className="w-full mt-2" disabled={!selectedExam || !docTitle || !selectedStudent}>
-                    Save Document
-                  </Button>
+                  <Button className="w-full bg-gray-500 hover:bg-gray-600">Save Document</Button>
                 </div>
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle>Scanning Tips</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-2 text-sm">
+            <Card className="shadow-sm">
+              <CardContent className="pt-6">
+                <h2 className="text-2xl font-bold mb-6">Scanning Tips</h2>
+                <ul className="space-y-4">
                   <li className="flex items-start">
-                    <Check className="h-4 w-4 mr-2 text-green-600 mt-0.5" />
+                    <Check className="h-5 w-5 text-green-500 mr-2 mt-0.5" />
                     <span>Ensure good lighting for best results</span>
                   </li>
                   <li className="flex items-start">
-                    <Check className="h-4 w-4 mr-2 text-green-600 mt-0.5" />
+                    <Check className="h-5 w-5 text-green-500 mr-2 mt-0.5" />
                     <span>Keep the document flat and aligned</span>
                   </li>
                   <li className="flex items-start">
-                    <Check className="h-4 w-4 mr-2 text-green-600 mt-0.5" />
+                    <Check className="h-5 w-5 text-green-500 mr-2 mt-0.5" />
                     <span>Capture the entire document in frame</span>
                   </li>
                   <li className="flex items-start">
-                    <X className="h-4 w-4 mr-2 text-red-600 mt-0.5" />
+                    <X className="h-5 w-5 text-red-500 mr-2 mt-0.5" />
                     <span>Avoid shadows or glare on the document</span>
                   </li>
                 </ul>
