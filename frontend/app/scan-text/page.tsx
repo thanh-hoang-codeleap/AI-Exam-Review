@@ -2,7 +2,7 @@
 
 import type React from "react"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useCallback } from "react"
 import {
   ArrowLeft,
   Upload,
@@ -231,6 +231,15 @@ export default function ScanText() {
   const [scoreValidation, setScoreValidation] = useState<ScoreValidation>({})
   const [hasScoreErrors, setHasScoreErrors] = useState(false)
 
+  // Add state for tracking student grades
+  const [studentGrades, setStudentGrades] = useState<{
+    total: { earned: number; possible: number }
+    sections: Record<string, { earned: number; possible: number }>
+  }>({
+    total: { earned: 0, possible: 0 },
+    sections: {},
+  })
+
   // Validate scores whenever editedTaskData changes
   useEffect(() => {
     if (isEditingSolution && editedTaskData) {
@@ -239,15 +248,15 @@ export default function ScanText() {
   }, [isEditingSolution, editedTaskData])
 
   // Effect to handle tab switching when document type is selected from sidebar
-  useEffect(() => {
-    if (uploadDocType !== null) {
-      // Find and click the upload tab if it's not already active
-      const uploadTabTrigger = document.querySelector('[data-state="inactive"][value="upload"]')
-      if (uploadTabTrigger) {
-        ;(uploadTabTrigger as HTMLElement).click()
-      }
-    }
-  }, [uploadDocType])
+  // useEffect(() => {
+  //   if (uploadDocType !== null) {
+  //     // Find and click the upload tab if it's not already active
+  //     const uploadTabTrigger = document.querySelector('[data-state="inactive"][value="upload"]')
+  //     if (uploadTabTrigger) {
+  //       ;(uploadTabTrigger as HTMLElement).click()
+  //     }
+  //   }
+  // }, [uploadDocType])
 
   // Function to validate scores
   const validateScores = (data: TaskData) => {
@@ -859,6 +868,78 @@ export default function ScanText() {
       setIsProcessingStudentExam(false)
     }
   }
+
+  // Add state for tracking student grades
+
+  // Function to calculate student grades
+  const calculateStudentGrades = useCallback(() => {
+    if (!studentExamData || !taskData) return
+
+    let totalEarned = 0
+    let totalPossible = 0
+    const sectionGrades: Record<string, { earned: number; possible: number }> = {}
+
+    // Process each section
+    Object.entries(studentExamData).forEach(([sectionName, sectionData]) => {
+      if (!Array.isArray(sectionData)) return
+
+      let sectionEarned = 0
+      let sectionPossible = 0
+
+      sectionData.forEach((item, itemIndex) => {
+        const itemKey = Object.keys(item)[0]
+        const studentTaskSection = item[itemKey]
+
+        // Find corresponding task section in the solution data
+        const solutionSectionData = taskData[sectionName]
+        if (!Array.isArray(solutionSectionData)) return
+
+        const solutionItem = solutionSectionData[itemIndex]
+        if (!solutionItem) return
+
+        const solutionItemKey = Object.keys(solutionItem)[0]
+        const solutionTaskSection = solutionItem[solutionItemKey]
+
+        // Add to section possible score
+        sectionPossible += solutionTaskSection.score
+
+        // Calculate earned score based on correct answers
+        studentTaskSection.solutions.forEach((solution, solutionIndex) => {
+          const questionId = `${sectionName}-${itemIndex}-${solutionIndex}`
+          const solutionScore = solutionTaskSection.solutions[solutionIndex]?.score || 0
+
+          // Check if the answer is correct (either by default or teacher correction)
+          const isCorrect =
+            solution.result === "correct" ||
+            (solution.result === "incorrect" && teacherCorrections[questionId] === true)
+
+          if (isCorrect) {
+            sectionEarned += solutionScore
+          }
+        })
+      })
+
+      // Update section grades
+      sectionGrades[sectionName] = { earned: sectionEarned, possible: sectionPossible }
+
+      // Add to totals
+      totalEarned += sectionEarned
+      totalPossible += sectionPossible
+    })
+
+    // Update the grades state
+    setStudentGrades({
+      total: { earned: totalEarned, possible: totalPossible },
+      sections: sectionGrades,
+    })
+  }, [studentExamData, taskData, teacherCorrections])
+
+  // Recalculate grades when student data, task data, or teacher corrections change
+  useEffect(() => {
+    if (studentExamData) {
+      calculateStudentGrades()
+    }
+  }, [studentExamData, taskData, teacherCorrections, calculateStudentGrades])
 
   // First, let's add a function to handle marking an answer as correct or incorrect
   // Add this function before the return statement
@@ -1941,6 +2022,26 @@ export default function ScanText() {
                                   className="hidden"
                                   onChange={(e) => handleFileInput(e, "student")}
                                 />
+                                {/* Add a button to process the student's exam */}
+                                {studentFile.length > 0 && (
+                                  <Button
+                                    className="w-full mt-4"
+                                    onClick={processStudentExam}
+                                    disabled={isProcessingStudentExam}
+                                  >
+                                    {isProcessingStudentExam ? (
+                                      <>
+                                        <div className="animate-spin mr-2 h-4 w-4 border-2 border-current border-t-transparent rounded-full"></div>
+                                        Processing Student Exam...
+                                      </>
+                                    ) : (
+                                      <>
+                                        <List className="mr-2 h-4 w-4" />
+                                        Process Student Exam
+                                      </>
+                                    )}
+                                  </Button>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -1991,92 +2092,241 @@ export default function ScanText() {
                           </div>
                         )}
 
-                        {taskData && studentFile.length > 0 && (
-                          <Button
-                            className="w-full mt-4"
-                            onClick={processStudentExam}
-                            disabled={isProcessingStudentExam}
-                          >
-                            {isProcessingStudentExam ? (
-                              <>
-                                <div className="animate-spin mr-2 h-4 w-4 border-2 border-current border-t-transparent rounded-full"></div>
-                                Processing Student Exam...
-                              </>
-                            ) : (
-                              <>
-                                <List className="mr-2 h-4 w-4" />
-                                Process Student Exam
-                              </>
-                            )}
-                          </Button>
-                        )}
-
+                        {/* Find the section that displays student exam data (around line 1400-1500)
+                        Replace the student exam data display section with this updated code: */}
                         {/* Display student exam data */}
                         {studentExamData && (
                           <div className="mt-6 bg-white border rounded-lg p-4">
-                            <h4 className="text-base font-medium flex items-center mb-3">
-                              <List className="mr-2 h-5 w-5 text-yellow-600" />
-                              Student's Exam Analysis
-                            </h4>
-                            <div className="max-h-[400px] overflow-y-auto">
-                              {Object.entries(studentExamData).map(([sectionName, sectionData]) => (
-                                <div key={sectionName} className="mb-6">
-                                  <h5 className="text-sm font-semibold bg-blue-50 p-2 rounded mb-3">{sectionName}</h5>
-
-                                  {Array.isArray(sectionData) ? (
-                                    sectionData.map((item, itemIndex) => {
-                                      // Get the first key in the item object
-                                      const itemKey = Object.keys(item)[0]
-                                      const taskSection = item[itemKey]
-
-                                      return (
-                                        <div key={itemIndex} className="mb-4">
-                                          <span className="text-sm font-medium">{itemKey}</span>
-                                          <div className="space-y-4">
-                                            {taskSection.solutions.map((solution, solutionIndex) => (
-                                              <div key={solutionIndex} className="border-b pb-3">
-                                                {/* Question */}
-                                                <p className="text-sm font-medium">{solution.question}</p>
-                                                <div className="mt-2">
-                                                  <span className="text-xs font-medium text-gray-500">Answer:</span>
-                                                  <div className="mt-1">
-                                                    {Array.isArray(solution.answer) ? (
-                                                      solution.answer.map((ans, i) => (
-                                                        <p key={i} className="text-sm bg-yellow-50 p-2 rounded mb-1">
-                                                          {ans}
-                                                        </p>
-                                                      ))
-                                                    ) : typeof solution.answer === "object" &&
-                                                      "solution" in solution.answer ? (
-                                                      Array.isArray(solution.answer.solution) ? (
-                                                        solution.answer.solution.map((ans, i) => (
-                                                          <p key={i} className="text-sm bg-yellow-50 p-2 rounded mb-1">
-                                                            {String(ans)}
-                                                          </p>
-                                                        ))
-                                                      ) : (
-                                                        <p className="text-sm bg-yellow-50 p-2 rounded mb-1">
-                                                          {String(solution.answer.solution)}
-                                                        </p>
-                                                      )
-                                                    ) : (
-                                                      <p className="text-sm bg-yellow-50 p-2 rounded mb-1">
-                                                        {String(solution.answer)}
-                                                      </p>
-                                                    )}
-                                                  </div>
-                                                </div>
-                                              </div>
-                                            ))}
-                                          </div>
-                                        </div>
-                                      )
-                                    })
-                                  ) : (
-                                    <p className="text-sm text-gray-500">No tasks found in this section.</p>
+                            <div className="flex justify-between items-center mb-3">
+                              <h4 className="text-base font-medium flex items-center">
+                                <List className="mr-2 h-5 w-5 text-yellow-600" />
+                                Student's Exam Analysis
+                              </h4>
+                              <div className="flex items-center">
+                                <span className="text-sm font-medium bg-blue-100 text-blue-800 px-3 py-1 rounded-full">
+                                  Grade: {studentGrades.total.earned.toFixed(1)}/
+                                  {studentGrades.total.possible.toFixed(1)}
+                                  {studentGrades.total.possible > 0 && (
+                                    <span className="ml-1">
+                                      ({Math.round((studentGrades.total.earned / studentGrades.total.possible) * 100)}%)
+                                    </span>
                                   )}
-                                </div>
-                              ))}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="max-h-[400px] overflow-y-auto">
+                              {Object.entries(studentExamData).map(([sectionName, sectionData]) => {
+                                const sectionGrade = studentGrades.sections[sectionName] || { earned: 0, possible: 0 }
+
+                                return (
+                                  <div key={sectionName} className="mb-6">
+                                    <div className="flex justify-between items-center">
+                                      <h5 className="text-sm font-semibold bg-blue-50 p-2 rounded mb-3">
+                                        {sectionName}
+                                      </h5>
+                                      <span className="text-xs font-medium bg-blue-100 text-blue-800 px-2 py-1 rounded-full mb-3">
+                                        Section Grade: {sectionGrade.earned.toFixed(1)}/
+                                        {sectionGrade.possible.toFixed(1)}
+                                      </span>
+                                    </div>
+
+                                    {Array.isArray(sectionData) ? (
+                                      sectionData.map((item, itemIndex) => {
+                                        // Get the first key in the item object
+                                        const itemKey = Object.keys(item)[0]
+                                        const taskSection = item[itemKey]
+
+                                        // Find corresponding task section in the solution data
+                                        const solutionSectionData = taskData?.[sectionName]
+                                        if (!Array.isArray(solutionSectionData)) return null
+
+                                        const solutionItem = solutionSectionData[itemIndex]
+                                        if (!solutionItem) return null
+
+                                        const solutionItemKey = Object.keys(solutionItem)[0]
+                                        const solutionTaskSection = solutionItem[solutionItemKey]
+
+                                        return (
+                                          <div key={itemIndex} className="mb-4">
+                                            <span className="text-sm font-medium">{itemKey}</span>
+                                            <div className="space-y-4">
+                                              {taskSection.solutions.map((solution, solutionIndex) => {
+                                                const questionId = `${sectionName}-${itemIndex}-${solutionIndex}`
+                                                const isCorrect =
+                                                  solution.result === "correct" ||
+                                                  teacherCorrections[questionId] === true
+
+                                                // Find the corresponding solution from the task data
+                                                const solutionAnswer = solutionTaskSection.solutions[solutionIndex]
+                                                const solutionScore = solutionAnswer?.score || 0
+
+                                                return (
+                                                  <div key={solutionIndex} className="border-b pb-3">
+                                                    {/* Question */}
+                                                    <div className="flex justify-between items-start mb-2">
+                                                      <p className="text-sm font-medium">{solution.question}</p>
+                                                      <span className="text-xs font-medium bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                                                        {solutionScore.toFixed(1)} points
+                                                      </span>
+                                                    </div>
+
+                                                    {/* Correct Answer from Solution */}
+                                                    <div className="mt-2">
+                                                      <span className="text-xs font-medium text-gray-500">
+                                                        Correct Answer:
+                                                      </span>
+                                                      <div className="mt-1">
+                                                        {Array.isArray(solutionAnswer?.answer) ? (
+                                                          solutionAnswer.answer.map((ans, i) => (
+                                                            <p key={i} className="text-sm bg-green-50 p-2 rounded mb-1">
+                                                              {ans}
+                                                            </p>
+                                                          ))
+                                                        ) : typeof solutionAnswer?.answer === "object" &&
+                                                          "solution" in solutionAnswer.answer ? (
+                                                          Array.isArray(solutionAnswer.answer.solution) ? (
+                                                            solutionAnswer.answer.solution.map((ans, i) => (
+                                                              <p
+                                                                key={i}
+                                                                className="text-sm bg-green-50 p-2 rounded mb-1"
+                                                              >
+                                                                {String(ans)}
+                                                              </p>
+                                                            ))
+                                                          ) : (
+                                                            <p className="text-sm bg-green-50 p-2 rounded mb-1">
+                                                              {String(solutionAnswer.answer.solution)}
+                                                            </p>
+                                                          )
+                                                        ) : (
+                                                          <p className="text-sm bg-green-50 p-2 rounded mb-1">
+                                                            {String(solutionAnswer?.answer || "No answer provided")}
+                                                          </p>
+                                                        )}
+                                                      </div>
+                                                    </div>
+
+                                                    {/* Student Answer */}
+                                                    <div className="mt-2">
+                                                      <div className="flex justify-between items-center">
+                                                        <span className="text-xs font-medium text-gray-500">
+                                                          Student Answer:
+                                                        </span>
+                                                        {solution.result === "incorrect" && (
+                                                          <div className="flex items-center space-x-4">
+                                                            <div className="flex items-center">
+                                                              <input
+                                                                type="radio"
+                                                                id={`${questionId}-incorrect`}
+                                                                name={`answer-${questionId}`}
+                                                                checked={!isCorrect}
+                                                                onChange={() => handleMarkAsCorrect(questionId, false)}
+                                                                className="mr-1"
+                                                              />
+                                                              <label
+                                                                htmlFor={`${questionId}-incorrect`}
+                                                                className="text-xs text-red-600"
+                                                              >
+                                                                falsch
+                                                              </label>
+                                                            </div>
+                                                            <div className="flex items-center">
+                                                              <input
+                                                                type="radio"
+                                                                id={`${questionId}-correct`}
+                                                                name={`answer-${questionId}`}
+                                                                checked={isCorrect}
+                                                                onChange={() => handleMarkAsCorrect(questionId, true)}
+                                                                className="mr-1"
+                                                              />
+                                                              <label
+                                                                htmlFor={`${questionId}-correct`}
+                                                                className="text-xs text-green-600"
+                                                              >
+                                                                richtig
+                                                              </label>
+                                                            </div>
+                                                          </div>
+                                                        )}
+                                                      </div>
+                                                      <div className="mt-1">
+                                                        {Array.isArray(solution.answer) ? (
+                                                          solution.answer.map((ans, i) => (
+                                                            <p
+                                                              key={i}
+                                                              className={`text-sm p-2 rounded mb-1 ${
+                                                                solution.result === "correct" || isCorrect
+                                                                  ? "bg-green-50 text-green-800"
+                                                                  : "bg-red-50 text-red-800"
+                                                              }`}
+                                                            >
+                                                              {ans}
+                                                              {(solution.result === "correct" || isCorrect) && (
+                                                                <Check className="inline-block h-4 w-4 ml-2 text-green-600" />
+                                                              )}
+                                                            </p>
+                                                          ))
+                                                        ) : typeof solution.answer === "object" &&
+                                                          "solution" in solution.answer ? (
+                                                          Array.isArray(solution.answer.solution) ? (
+                                                            solution.answer.solution.map((ans, i) => (
+                                                              <p
+                                                                key={i}
+                                                                className={`text-sm p-2 rounded mb-1 ${
+                                                                  solution.result === "correct" || isCorrect
+                                                                    ? "bg-green-50 text-green-800"
+                                                                    : "bg-red-50 text-red-800"
+                                                                }`}
+                                                              >
+                                                                {String(ans)}
+                                                                {(solution.result === "correct" || isCorrect) && (
+                                                                  <Check className="inline-block h-4 w-4 ml-2 text-green-600" />
+                                                                )}
+                                                              </p>
+                                                            ))
+                                                          ) : (
+                                                            <p
+                                                              className={`text-sm p-2 rounded mb-1 ${
+                                                                solution.result === "correct" || isCorrect
+                                                                  ? "bg-green-50 text-green-800"
+                                                                  : "bg-red-50 text-red-800"
+                                                              }`}
+                                                            >
+                                                              {String(solution.answer.solution)}
+                                                              {(solution.result === "correct" || isCorrect) && (
+                                                                <Check className="inline-block h-4 w-4 ml-2 text-green-600" />
+                                                              )}
+                                                            </p>
+                                                          )
+                                                        ) : (
+                                                          <p
+                                                            className={`text-sm p-2 rounded mb-1 ${
+                                                              solution.result === "correct" || isCorrect
+                                                                ? "bg-green-50 text-green-800"
+                                                                : "bg-red-50 text-red-800"
+                                                            }`}
+                                                          >
+                                                            {String(solution.answer)}
+                                                            {(solution.result === "correct" || isCorrect) && (
+                                                              <Check className="inline-block h-4 w-4 ml-2 text-green-600" />
+                                                            )}
+                                                          </p>
+                                                        )}
+                                                      </div>
+                                                    </div>
+                                                  </div>
+                                                )
+                                              })}
+                                            </div>
+                                          </div>
+                                        )
+                                      })
+                                    ) : (
+                                      <p className="text-sm text-gray-500">No tasks found in this section.</p>
+                                    )}
+                                  </div>
+                                )
+                              })}
                             </div>
                           </div>
                         )}
@@ -2101,151 +2351,150 @@ export default function ScanText() {
             </Tabs>
           </div>
 
-          {/* Sidebar with Document Details and Scanning Tips */}
+          {/* Find the sidebar section and replace it with this dropdown-based version */}
+
+          {/* Sidebar with Document Details */}
           <div className="lg:col-span-1 space-y-6">
-            <Card className="shadow-sm">
-              <CardContent className="pt-6">
-                <h2 className="text-2xl font-bold mb-6">Document Details</h2>
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-xl">Document Details</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="class-select">Class</Label>
+                  <select
+                    id="class-select"
+                    value={selectedClass}
+                    onChange={(e) => setSelectedClass(e.target.value)}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  >
+                    <option value="">Select a class</option>
+                    {classes.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-                <div className="space-y-6">
-                  <div className="space-y-2">
-                    <Label htmlFor="class-select">Class</Label>
-                    <select
-                      id="class-select"
-                      className="w-full p-2 border rounded-md bg-white"
-                      value={selectedClass}
-                      onChange={(e) => setSelectedClass(e.target.value)}
-                    >
-                      <option value="">Select a class</option>
-                      {classes.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.title}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="exam-select">Exam</Label>
+                  <select
+                    id="exam-select"
+                    value={selectedExam}
+                    onChange={(e) => setSelectedExam(e.target.value)}
+                    disabled={!currentClass}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  >
+                    <option value="">Select an exam</option>
+                    {currentClass?.exams.map((exam) => (
+                      <option key={exam.id} value={exam.id}>
+                        {exam.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="exam-select">Exam</Label>
-                    <select
-                      id="exam-select"
-                      className="w-full p-2 border rounded-md bg-white"
-                      value={selectedExam}
-                      onChange={(e) => setSelectedExam(e.target.value)}
-                      disabled={!currentClass}
-                    >
-                      <option value="">Select an exam</option>
-                      {currentClass?.exams.map((exam) => (
-                        <option key={exam.id} value={exam.id}>
-                          {exam.title}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                <div className="space-y-2">
+                  <Label htmlFor="student-select">Student</Label>
+                  <select
+                    id="student-select"
+                    value={selectedStudent}
+                    onChange={(e) => setSelectedStudent(e.target.value)}
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  >
+                    <option value="">Select a student</option>
+                    {students.map((student) => (
+                      <option key={student.id} value={student.id}>
+                        {student.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
+                <div className="space-y-2">
+                  <Label>Document Type</Label>
                   <div className="space-y-2">
-                    <Label htmlFor="student-select">Student</Label>
-                    <select
-                      id="student-select"
-                      className="w-full p-2 border rounded-md bg-white"
-                      value={selectedStudent}
-                      onChange={(e) => setSelectedStudent(e.target.value)}
-                    >
-                      <option value="">Select a student</option>
-                      {students.map((student) => (
-                        <option key={student.id} value={student.id}>
-                          {student.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Document Type</Label>
-                    <div className="space-y-2">
-                      <div className="flex items-center">
-                        <input
-                          type="radio"
-                          id="task-type"
-                          name="docType"
-                          value="task"
-                          checked={docType === "task"}
-                          onChange={() => {
-                            setDocType("task")
-                            setUploadDocType("tasks")
-                            // Ensure we're on the upload tab
-                            const uploadTabTrigger = document.querySelector('[data-state="inactive"][value="upload"]')
-                            if (uploadTabTrigger) {
-                              ;(uploadTabTrigger as HTMLElement).click()
-                            }
-                          }}
-                          className="h-4 w-4 mr-2"
-                        />
-                        <Label htmlFor="task-type" className="cursor-pointer">
-                          Task
-                        </Label>
-                      </div>
-                      <div className="flex items-center">
-                        <input
-                          type="radio"
-                          id="text-type"
-                          name="docType"
-                          value="text"
-                          checked={docType === "text"}
-                          onChange={() => {
-                            setDocType("text")
-                            setUploadDocType("text")
-                            // Ensure we're on the upload tab
-                            const uploadTabTrigger = document.querySelector('[data-state="inactive"][value="upload"]')
-                            if (uploadTabTrigger) {
-                              ;(uploadTabTrigger as HTMLElement).click()
-                            }
-                          }}
-                          className="h-4 w-4 mr-2"
-                        />
-                        <Label htmlFor="text-type" className="cursor-pointer">
-                          Text
-                        </Label>
-                      </div>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="radio"
+                        id="task"
+                        value="task"
+                        checked={docType === "task"}
+                        onChange={() => {
+                          setDocType("task")
+                          setUploadDocType("tasks")
+                          // Find and click the upload tab if it's not already active
+                          const uploadTabTrigger = document.querySelector('[data-state="inactive"][value="upload"]')
+                          if (uploadTabTrigger) {
+                            ;(uploadTabTrigger as HTMLElement).click()
+                          }
+                        }}
+                        className="h-4 w-4 rounded-full border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <Label htmlFor="task" className="font-normal">
+                        Task
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="radio"
+                        id="text"
+                        value="text"
+                        checked={docType === "text"}
+                        onChange={() => {
+                          setDocType("text")
+                          setUploadDocType("text")
+                          // Find and click the upload tab if it's not already active
+                          const uploadTabTrigger = document.querySelector('[data-state="inactive"][value="upload"]')
+                          if (uploadTabTrigger) {
+                            ;(uploadTabTrigger as HTMLElement).click()
+                          }
+                        }}
+                        className="h-4 w-4 rounded-full border-gray-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <Label htmlFor="text" className="font-normal">
+                        Text
+                      </Label>
                     </div>
                   </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="doc-title">Document Title</Label>
-                    <Input
-                      id="doc-title"
-                      placeholder="Enter document title"
-                      value={docTitle}
-                      onChange={(e) => setDocTitle(e.target.value)}
-                    />
-                  </div>
-
-                  <Button className="w-full bg-gray-500 hover:bg-gray-600">Save Document</Button>
                 </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="doc-title">Document Title</Label>
+                  <Input
+                    id="doc-title"
+                    placeholder="Enter document title"
+                    value={docTitle}
+                    onChange={(e) => setDocTitle(e.target.value)}
+                  />
+                </div>
+
+                <Button className="w-full bg-gray-600 hover:bg-gray-700">Save Document</Button>
               </CardContent>
             </Card>
 
-            <Card className="shadow-sm">
-              <CardContent className="pt-6">
-                <h2 className="text-2xl font-bold mb-6">Scanning Tips</h2>
-                <ul className="space-y-4">
-                  <li className="flex items-start">
-                    <Check className="h-5 w-5 text-green-500 mr-2 mt-0.5" />
-                    <span>Ensure good lighting for best results</span>
-                  </li>
-                  <li className="flex items-start">
-                    <Check className="h-5 w-5 text-green-500 mr-2 mt-0.5" />
-                    <span>Keep the document flat and aligned</span>
-                  </li>
-                  <li className="flex items-start">
-                    <Check className="h-5 w-5 text-green-500 mr-2 mt-0.5" />
-                    <span>Capture the entire document in frame</span>
-                  </li>
-                  <li className="flex items-start">
-                    <X className="h-5 w-5 text-red-500 mr-2 mt-0.5" />
-                    <span>Avoid shadows or glare on the document</span>
-                  </li>
-                </ul>
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-xl">Scanning Tips</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="flex items-start space-x-2">
+                  <Check className="h-5 w-5 text-green-500 mt-0.5" />
+                  <p>Ensure good lighting for best results</p>
+                </div>
+                <div className="flex items-start space-x-2">
+                  <Check className="h-5 w-5 text-green-500 mt-0.5" />
+                  <p>Keep the document flat and aligned</p>
+                </div>
+                <div className="flex items-start space-x-2">
+                  <Check className="h-5 w-5 text-green-500 mt-0.5" />
+                  <p>Capture the entire document in frame</p>
+                </div>
+                <div className="flex items-start space-x-2">
+                  <X className="h-5 w-5 text-red-500 mt-0.5" />
+                  <p>Avoid shadows or glare on the document</p>
+                </div>
               </CardContent>
             </Card>
           </div>
