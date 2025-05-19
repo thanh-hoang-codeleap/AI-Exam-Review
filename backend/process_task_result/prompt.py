@@ -11,6 +11,7 @@ result_prompt = """
             "score": number,
             "solutions": [
                 {
+                "score: number,
                 "question": "string",
                 "answer": ["string"]
                 }
@@ -93,6 +94,7 @@ result_prompt = """
             "score": 10,
             "solutions": [
                 {
+                "score": 2,
                 "question": "Solve for x: 2x + 5 = 15",
                 "answer": ["x = 5"]
                 }
@@ -112,6 +114,7 @@ result_prompt = """
             "score": 10,
             "solutions": [
                 {
+                "score": 2,
                 "question": "Solve for x: 2x + 5 = 15",
                 "answer": ["x=5"]
                 }
@@ -131,6 +134,7 @@ result_prompt = """
             "score": 10,
             "solutions": [
                 {
+                "score": 2,
                 "question": "Solve for x: 2x + 5 = 15",
                 "result": "correct",
                 "answer": {
@@ -156,6 +160,7 @@ result_prompt = """
             "score": 5,
             "solutions": [
                 {
+                "score": 2,
                 "question": "Which gas makes up most of Earth's atmosphere?",
                 "answer": ["Nitrogen"]
                 }
@@ -175,6 +180,7 @@ result_prompt = """
             "score": 5,
             "solutions": [
                 {
+                "score": 2,
                 "question": "Which gas makes up most of Earth's atmosphere?",
                 "answer": ["Nitrogen"]
                 }
@@ -194,6 +200,7 @@ result_prompt = """
             "score": 5,
             "solutions": [
                 {
+                "score": 2,
                 "question": "Which gas makes up most of Earth's atmosphere?",
                 "result": "correct",
                 "answer": {

@@ -10,7 +10,8 @@ from ocr_pdf import pdf_to_image
 
 load_dotenv()
 
-def read_first_page(image_path, output_path):
+# Reads the first page of a PDF image
+def read_first_page(image_path: str, output_path: str) -> None:
     try:
         print("Reading page 1...")
         with open(output_path, "w") as file:
@@ -25,83 +26,101 @@ def read_first_page(image_path, output_path):
     except Exception as e:
         print(f"Failed to read the first page. \n Error: {e}")
 
-def remove_first_page(input_pdf_path):
-    # Open the PDF file
-    with open(input_pdf_path, "rb") as infile:
-        reader = PdfReader(infile)
-        
-        # Create a PdfWriter object to write the output
-        writer = PdfWriter()
-
-        # Add all pages except the first one
-        for page_num in range(1, len(reader.pages)):
-            writer.add_page(reader.pages[page_num])
-
-        # Write the modified PDF to the output file
-        out_file = "backend/removed_pdf.pdf"
-        with open("backend/removed_pdf.pdf", "wb") as outfile:
-            writer.write(outfile)
-    
-    return out_file
-
-def extract_text_from_pdf(pdf_path, output_path, client):
-    with open(pdf_path, "rb") as f:
-        # Begin document analysis with Azure Document Intelligence
-        poller = client.begin_analyze_document("prebuilt-document", f)
-        result = poller.result()
-
-        # Initialize an empty string to hold the extracted text
-        extracted_text = ""
-
-        # Iterate through each page in the result
-        for i, page in enumerate(result.pages):
-            extracted_text = ""
-            print(f"Reading page {i + 2}...")
-            # Iterate through each line on the page
-            for line in page.lines:
-                # Get the content of the current line
-                line_content = line.content
+# Removes the first page of the PDF
+def remove_first_page(input_pdf_path: str) -> str:
+    try:
+        # Open the PDF file
+        with open(input_pdf_path, "rb") as infile:
+            reader = PdfReader(infile)
             
-                # Check if the last character of the line is a sentensce-ending punctuation mark
-                #if line_content[-1] in sentence_end_punctuation:
-                    # If it is, append the line followed by a newline
-                extracted_text += line_content + "\n"
-                # else:
-                #     # Otherwise, just append the line without a newline
-                #     extracted_text += line_content + " "
-            with open(output_path, "a") as file:
-                file.write(extracted_text)
-    
-    print("Finish reading the file")
+            # Create a PdfWriter object to write the output
+            writer = PdfWriter()
 
-def extract_tasks(file_path):
-    images = pdf_to_image(file_path)
+            # Add all pages except the first one
+            for page_num in range(1, len(reader.pages)):
+                writer.add_page(reader.pages[page_num])
 
-    client = DocumentAnalysisClient(
-        endpoint=os.getenv("END_POINT"),
-        credential=AzureKeyCredential(os.getenv("API_KEY"))
-    )
+            # Write the modified PDF to the output file
+            out_file = "backend/removed_pdf.pdf"
+            with open(out_file, "wb") as outfile:
+                writer.write(outfile)
 
-    file_name = os.path.basename(file_path)[:-4].replace(" ", "_")
-    output_file = f'extracted_texts/{file_name}.txt'
-    if os.path.exists(output_file):
-        os.remove(output_file)
+        return out_file
+    except Exception as e:
+        print(f"Failed to remove the first page from the PDF. Error: {e}")
+        return ""
 
-    images_folder = f"images_from_pdf/{file_name}"
-    if not os.path.exists(images_folder):
-        os.makedirs(images_folder)
+# Extracts text from a PDF using Azure Document Analysis
+def extract_text_from_pdf(pdf_path: str, output_path: str, client: DocumentAnalysisClient) -> None:
+    try:
+        with open(pdf_path, "rb") as f:
+            # Begin document analysis with Azure Document Intelligence
+            poller = client.begin_analyze_document("prebuilt-document", f)
+            result = poller.result()
 
-    print("Start reading file...")
-    # Process each image (PDF page) for OCR
-    for i, image in enumerate(images):
-        image_path = f'{images_folder}/page_{i + 1}.png'
-        image.save(image_path, 'PNG')
+            # Initialize an empty string to hold the extracted text
+            extracted_text = ""
 
-        if i == 0:
-            read_first_page(image_path, output_file)
-        else:
-            break
+            # Iterate through each page in the result
+            for i, page in enumerate(result.pages):
+                extracted_text = ""
+                print(f"Reading page {i + 2}...")
+                # Iterate through each line on the page
+                for line in page.lines:
+                    # Get the content of the current line
+                    line_content = line.content
+                    extracted_text += line_content + "\n"
+                
+                # Write extracted text to the output file
+                with open(output_path, "a") as file:
+                    file.write(extracted_text)
 
-    extract_text_from_pdf(remove_first_page(file_path), output_file, client)
+        print("Finish reading the file")
+    except Exception as e:
+        print(f"Failed to extract text from PDF. Error: {e}")
 
-    return output_file
+# Extract the task using OCR
+def extract_tasks(file_path: str) -> str | None:
+    try:
+        # Convert PDF to images
+        images = pdf_to_image(file_path)
+
+        # Initialize Azure DocumentAnalysisClient
+        client = DocumentAnalysisClient(
+            endpoint=os.getenv("END_POINT"),
+            credential=AzureKeyCredential(os.getenv("API_KEY"))
+        )
+
+        # Prepare the output file
+        file_name = os.path.basename(file_path)[:-4].replace(" ", "_")
+        output_file = f'extracted_texts/{file_name}.txt'
+        if os.path.exists(output_file):
+            os.remove(output_file)
+
+        # Prepare the folder to save images
+        images_folder = f"images_from_pdf/{file_name}"
+        if not os.path.exists(images_folder):
+            os.makedirs(images_folder)
+
+        print("Start reading file...")
+
+        # Process each image (PDF page) for OCR
+        for i, image in enumerate(images):
+            image_path = f'{images_folder}/page_{i + 1}.png'
+            image.save(image_path, 'PNG')
+
+            # Read first page and extract text from it
+            if i == 0:
+                read_first_page(image_path, output_file)
+            else:
+                break
+
+        # Remove first page from the PDF and extract text using Azure
+        extracted_pdf_path = remove_first_page(file_path)
+        if extracted_pdf_path:
+            extract_text_from_pdf(extracted_pdf_path, output_file, client)
+
+        return output_file
+    except Exception as e:
+        print(f"Failed to extract tasks. Error: {e}")
+        return None
