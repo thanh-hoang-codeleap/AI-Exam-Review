@@ -42,4 +42,3 @@ export default function QuickStarter({ title, description, icon, href, className
     </Link>
   )
 }
-

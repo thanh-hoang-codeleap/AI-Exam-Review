@@ -50,4 +50,3 @@ export default function FolderCard({ title, description, icon, imageSrc, href, c
     </Link>
   )
 }
-

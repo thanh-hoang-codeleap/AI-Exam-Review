@@ -41,7 +41,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./backend
-          file: ./backend/Dockerfile 
+          file: ./backend/Dockerfile
           platforms: linux/amd64,linux/arm64
           push: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
           tags: | # Define tags - use metadata action output or define manually
@@ -91,6 +91,6 @@ jobs:
           tags: | # Define tags
             ghcr.io/thanh-hoang-codeleap/ai-exam-review/ai-exam-reviewer-frontend:latest
             ghcr.io/thanh-hoang-codeleap/ai-exam-review/ai-exam-reviewer-frontend:sha-${{ github.sha }}
-          labels: ${{ steps.meta_frontend.outputs.labels }} 
+          labels: ${{ steps.meta_frontend.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

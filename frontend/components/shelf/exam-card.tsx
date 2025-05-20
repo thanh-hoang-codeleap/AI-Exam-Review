@@ -54,4 +54,3 @@ export default function ExamCard({ examData }: ExamCardProps) {
     </Link>
   )
 }
-

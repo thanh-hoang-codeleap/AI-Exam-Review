@@ -26,4 +26,3 @@ export function Upload({ file }: UploadProps) {
     </div>
   )
 }
-

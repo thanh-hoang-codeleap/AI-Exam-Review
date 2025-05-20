@@ -142,4 +142,3 @@ export default function StudentTaskList({ studentId, classId }: StudentTaskListP
     </div>
   )
 }
-

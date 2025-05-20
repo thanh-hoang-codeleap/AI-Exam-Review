@@ -32,15 +32,15 @@ export default function CheckText() {
 
       if (checkType === "grammar") {
         simulatedResult = `Grammar Check Results:
-        
+
 Your text appears to be grammatically correct. Here are some style suggestions:
 - Consider using more varied sentence structures
 - The text is clear and concise
-        
+
 Overall rating: Good`
       } else if (checkType === "translation") {
         simulatedResult = `Translation to ${language}:
-        
+
 ${
   language === "spanish"
     ? "Hola, este es un texto traducido de ejemplo."
@@ -52,7 +52,7 @@ ${
 }`
       } else if (checkType === "summary") {
         simulatedResult = `Summary:
-        
+
 This text discusses key points about education and learning methods. The main themes include student engagement, effective teaching strategies, and assessment techniques.`
       }
 
@@ -166,4 +166,3 @@ This text discusses key points about education and learning methods. The main th
     </main>
   )
 }
-

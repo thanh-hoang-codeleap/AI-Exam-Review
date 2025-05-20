@@ -142,4 +142,3 @@ export default function StudentSkills({ studentId, classId }: StudentSkillsProps
     </div>
   )
 }
-
