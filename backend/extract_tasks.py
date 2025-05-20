@@ -41,7 +41,7 @@ def remove_first_page(input_pdf_path: str) -> str:
                 writer.add_page(reader.pages[page_num])
 
             # Write the modified PDF to the output file
-            out_file = "backend/removed_pdf.pdf"
+            out_file = "removed_pdf.pdf"
             with open(out_file, "wb") as outfile:
                 writer.write(outfile)
 

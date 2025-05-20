@@ -49,7 +49,7 @@ def ocr_pdf(file_path: str) -> str:
             VisualFeatures.READ,
         ]
         file_name = os.path.basename(file_path)[:-4].replace(" ", "_")
-        output_file = f'backend/extracted_texts/{file_name}.txt'
+        output_file = f'extracted_texts/{file_name}.txt'
         if os.path.exists(output_file):
             os.remove(output_file)
 

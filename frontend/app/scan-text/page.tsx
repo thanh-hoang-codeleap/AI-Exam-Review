@@ -70,7 +70,7 @@ interface Solution {
         student: string[]
         solution: string[]
       }
-  result?: "correct" | "incorrect"
+  result?: "correct" | "incorrect" | string[] // Updated to handle array of results
   score?: number
 }
 
@@ -908,13 +908,32 @@ export default function ScanText() {
           const questionId = `${sectionName}-${itemIndex}-${solutionIndex}`
           const solutionScore = solutionTaskSection.solutions[solutionIndex]?.score || 0
 
-          // Check if the answer is correct (either by default or teacher correction)
-          const isCorrect =
-            solution.result === "correct" ||
-            (solution.result === "incorrect" && teacherCorrections[questionId] === true)
+          // Handle array of results
+          if (Array.isArray(solution.result)) {
+            // Calculate score for each answer item
+            const totalItems = solution.result.length
+            let correctItems = 0
 
-          if (isCorrect) {
-            sectionEarned += solutionScore
+            solution.result.forEach((itemResult, itemIndex) => {
+              const itemQuestionId = `${questionId}-${itemIndex}`
+              if (itemResult === "correct" || teacherCorrections[itemQuestionId] === true) {
+                correctItems++
+              }
+            })
+
+            // Calculate proportional score based on correct items
+            if (totalItems > 0) {
+              sectionEarned += (correctItems / totalItems) * solutionScore
+            }
+          } else {
+            // Handle single result
+            const isCorrect =
+              solution.result === "correct" ||
+              (solution.result === "incorrect" && teacherCorrections[questionId] === true)
+
+            if (isCorrect) {
+              sectionEarned += solutionScore
+            }
           }
         })
       })
@@ -1264,6 +1283,67 @@ export default function ScanText() {
         description: "Failed to update solution on the server. Please try again.",
         variant: "destructive",
       })
+    }
+  }
+
+  // Function to distribute scores evenly across all questions in all sections
+  const distributeScoresEvenlyAcrossAll = () => {
+    if (!editedTaskData) return
+
+    setEditedTaskData((prevData) => {
+      if (!prevData) return null
+
+      const newData = { ...prevData }
+
+      // Process each section independently
+      Object.entries(newData).forEach(([sectionName, sectionData]) => {
+        if (Array.isArray(sectionData)) {
+          // For each section, process each item (task)
+          sectionData.forEach((item, itemIndex) => {
+            const itemKey = Object.keys(item)[0]
+            const taskSection = { ...item[itemKey] }
+
+            const totalScore = taskSection.score
+            const solutions = [...taskSection.solutions]
+            const questionCount = solutions.length
+
+            if (questionCount > 0) {
+              // Calculate score per question for this section (rounded to 2 decimal places)
+              const scorePerQuestion = Math.round((totalScore / questionCount) * 100) / 100
+
+              // Distribute scores evenly within this section
+              solutions.forEach((solution, solutionIndex) => {
+                // For the last question, adjust to ensure sum equals total
+                if (solutionIndex === questionCount - 1) {
+                  const currentSum = solutions.slice(0, solutionIndex).reduce((sum, s) => sum + (s.score || 0), 0)
+                  solutions[solutionIndex] = {
+                    ...solution,
+                    score: Math.round((totalScore - currentSum) * 100) / 100,
+                  }
+                } else {
+                  solutions[solutionIndex] = {
+                    ...solution,
+                    score: scorePerQuestion,
+                  }
+                }
+              })
+
+              // Update the task section with the new solutions
+              taskSection.solutions = solutions
+
+              // Update the item with the updated task section
+              item[itemKey] = taskSection
+            }
+          })
+        }
+      })
+
+      return newData
+    })
+
+    // Validate the updated scores
+    if (editedTaskData) {
+      validateScores(editedTaskData)
     }
   }
 
@@ -1758,13 +1838,23 @@ export default function ScanText() {
                                     Score totals don't match
                                   </div>
                                 )}
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={isEditingSolution ? handleSaveSolution : handleEditSolution}
-                                >
-                                  {isEditingSolution ? "Update Solution" : "Edit"}
-                                </Button>
+                                {isEditingSolution ? (
+                                  <>
+                                    <Button variant="outline" size="sm" onClick={() => setIsEditingSolution(false)}>
+                                      Cancel
+                                    </Button>
+                                    <Button variant="outline" size="sm" onClick={distributeScoresEvenlyAcrossAll}>
+                                      Distribute Evenly Across All
+                                    </Button>
+                                    <Button variant="default" size="sm" onClick={handleSaveSolution}>
+                                      Update Solution
+                                    </Button>
+                                  </>
+                                ) : (
+                                  <Button variant="outline" size="sm" onClick={handleEditSolution}>
+                                    Edit
+                                  </Button>
+                                )}
                               </div>
                             </div>
                             <div className="max-h-[400px] overflow-y-auto">
@@ -1794,7 +1884,7 @@ export default function ScanText() {
                                                   <Button
                                                     variant="ghost"
                                                     size="sm"
-                                                    className="h-6 text-xs mr-2"
+                                                    className="h-6 text-xs"
                                                     onClick={() => distributeScoresEvenly(sectionName, itemIndex)}
                                                   >
                                                     Distribute Evenly
@@ -2176,7 +2266,25 @@ export default function ScanText() {
                                                         Correct Answer:
                                                       </span>
                                                       <div className="mt-1">
-                                                        {Array.isArray(solutionAnswer?.answer) ? (
+                                                        {typeof solution.answer === "object" &&
+                                                        "solution" in solution.answer ? (
+                                                          // Handle the specific JSON structure where answer has solution and student fields
+                                                          Array.isArray(solution.answer.solution) ? (
+                                                            solution.answer.solution.map((ans, i) => (
+                                                              <p
+                                                                key={i}
+                                                                className="text-sm bg-green-50 p-2 rounded mb-1"
+                                                              >
+                                                                {String(ans)}
+                                                              </p>
+                                                            ))
+                                                          ) : (
+                                                            <p className="text-sm bg-green-50 p-2 rounded mb-1">
+                                                              {String(solution.answer.solution)}
+                                                            </p>
+                                                          )
+                                                        ) : Array.isArray(solutionAnswer?.answer) ? (
+                                                          // Handle array answer
                                                           solutionAnswer.answer.map((ans, i) => (
                                                             <p key={i} className="text-sm bg-green-50 p-2 rounded mb-1">
                                                               {ans}
@@ -2184,6 +2292,7 @@ export default function ScanText() {
                                                           ))
                                                         ) : typeof solutionAnswer?.answer === "object" &&
                                                           "solution" in solutionAnswer.answer ? (
+                                                          // Handle object with solution property
                                                           Array.isArray(solutionAnswer.answer.solution) ? (
                                                             solutionAnswer.answer.solution.map((ans, i) => (
                                                               <p
@@ -2199,6 +2308,7 @@ export default function ScanText() {
                                                             </p>
                                                           )
                                                         ) : (
+                                                          // Fallback
                                                           <p className="text-sm bg-green-50 p-2 rounded mb-1">
                                                             {String(solutionAnswer?.answer || "No answer provided")}
                                                           </p>
@@ -2212,105 +2322,270 @@ export default function ScanText() {
                                                         <span className="text-xs font-medium text-gray-500">
                                                           Student Answer:
                                                         </span>
-                                                        {solution.result === "incorrect" && (
-                                                          <div className="flex items-center space-x-4">
-                                                            <div className="flex items-center">
-                                                              <input
-                                                                type="radio"
-                                                                id={`${questionId}-incorrect`}
-                                                                name={`answer-${questionId}`}
-                                                                checked={!isCorrect}
-                                                                onChange={() => handleMarkAsCorrect(questionId, false)}
-                                                                className="mr-1"
-                                                              />
-                                                              <label
-                                                                htmlFor={`${questionId}-incorrect`}
-                                                                className="text-xs text-red-600"
-                                                              >
-                                                                falsch
-                                                              </label>
-                                                            </div>
-                                                            <div className="flex items-center">
-                                                              <input
-                                                                type="radio"
-                                                                id={`${questionId}-correct`}
-                                                                name={`answer-${questionId}`}
-                                                                checked={isCorrect}
-                                                                onChange={() => handleMarkAsCorrect(questionId, true)}
-                                                                className="mr-1"
-                                                              />
-                                                              <label
-                                                                htmlFor={`${questionId}-correct`}
-                                                                className="text-xs text-green-600"
-                                                              >
-                                                                richtig
-                                                              </label>
-                                                            </div>
-                                                          </div>
-                                                        )}
                                                       </div>
                                                       <div className="mt-1">
-                                                        {Array.isArray(solution.answer) ? (
-                                                          solution.answer.map((ans, i) => (
-                                                            <p
-                                                              key={i}
-                                                              className={`text-sm p-2 rounded mb-1 ${
-                                                                solution.result === "correct" || isCorrect
-                                                                  ? "bg-green-50 text-green-800"
-                                                                  : "bg-red-50 text-red-800"
-                                                              }`}
-                                                            >
-                                                              {ans}
-                                                              {(solution.result === "correct" || isCorrect) && (
-                                                                <Check className="inline-block h-4 w-4 ml-2 text-green-600" />
-                                                              )}
-                                                            </p>
-                                                          ))
-                                                        ) : typeof solution.answer === "object" &&
-                                                          "solution" in solution.answer ? (
-                                                          Array.isArray(solution.answer.solution) ? (
-                                                            solution.answer.solution.map((ans, i) => (
+                                                        {typeof solution.answer === "object" &&
+                                                        "student" in solution.answer ? (
+                                                          // Handle the specific JSON structure where answer has student and solution fields
+                                                          Array.isArray(solution.answer.student) ? (
+                                                            solution.answer.student.map((ans, i) => {
+                                                              // Determine if this specific answer is correct
+                                                              const itemResult = Array.isArray(solution.result)
+                                                                ? solution.result[i] === "correct"
+                                                                : solution.result === "correct"
+
+                                                              const questionItemId = `${questionId}-${i}`
+                                                              const isItemCorrect =
+                                                                itemResult ||
+                                                                teacherCorrections[questionItemId] === true
+
+                                                              return (
+                                                                <div key={i} className="mb-2 flex items-start">
+                                                                  <p
+                                                                    className={`text-sm p-2 rounded flex-grow ${
+                                                                      isItemCorrect
+                                                                        ? "bg-green-50 text-green-800"
+                                                                        : "bg-red-50 text-red-800"
+                                                                    }`}
+                                                                  >
+                                                                    {String(ans)}
+                                                                    {isItemCorrect && (
+                                                                      <Check className="inline-block h-4 w-4 ml-2 text-green-600" />
+                                                                    )}
+                                                                  </p>
+
+                                                                  {/* Only show correction options for incorrect answers */}
+                                                                  {!itemResult && (
+                                                                    <div className="flex items-center space-x-4 ml-2 mt-1">
+                                                                      <div className="flex items-center">
+                                                                        <input
+                                                                          type="radio"
+                                                                          id={`${questionItemId}-incorrect`}
+                                                                          name={`answer-${questionItemId}`}
+                                                                          checked={!isItemCorrect}
+                                                                          onChange={() =>
+                                                                            handleMarkAsCorrect(questionItemId, false)
+                                                                          }
+                                                                          className="mr-1"
+                                                                        />
+                                                                        <label
+                                                                          htmlFor={`${questionItemId}-incorrect`}
+                                                                          className="text-xs text-red-600"
+                                                                        >
+                                                                          falsch
+                                                                        </label>
+                                                                      </div>
+                                                                      <div className="flex items-center">
+                                                                        <input
+                                                                          type="radio"
+                                                                          id={`${questionItemId}-correct`}
+                                                                          name={`answer-${questionItemId}`}
+                                                                          checked={isItemCorrect}
+                                                                          onChange={() =>
+                                                                            handleMarkAsCorrect(questionItemId, true)
+                                                                          }
+                                                                          className="mr-1"
+                                                                        />
+                                                                        <label
+                                                                          htmlFor={`${questionItemId}-correct`}
+                                                                          className="text-xs text-green-600"
+                                                                        >
+                                                                          richtig
+                                                                        </label>
+                                                                      </div>
+                                                                    </div>
+                                                                  )}
+                                                                </div>
+                                                              )
+                                                            })
+                                                          ) : (
+                                                            // Handle single student answer
+                                                            <div className="mb-2 flex items-start">
                                                               <p
-                                                                key={i}
-                                                                className={`text-sm p-2 rounded mb-1 ${
-                                                                  solution.result === "correct" || isCorrect
+                                                                className={`text-sm p-2 rounded flex-grow ${
+                                                                  solution.result === "correct" ||
+                                                                  teacherCorrections[questionId] === true
                                                                     ? "bg-green-50 text-green-800"
                                                                     : "bg-red-50 text-red-800"
                                                                 }`}
                                                               >
-                                                                {String(ans)}
-                                                                {(solution.result === "correct" || isCorrect) && (
+                                                                {String(solution.answer.student)}
+                                                                {(solution.result === "correct" ||
+                                                                  teacherCorrections[questionId] === true) && (
                                                                   <Check className="inline-block h-4 w-4 ml-2 text-green-600" />
                                                                 )}
                                                               </p>
-                                                            ))
-                                                          ) : (
+
+                                                              {solution.result === "incorrect" && (
+                                                                <div className="flex items-center space-x-4 ml-2 mt-1">
+                                                                  <div className="flex items-center">
+                                                                    <input
+                                                                      type="radio"
+                                                                      id={`${questionId}-incorrect`}
+                                                                      name={`answer-${questionId}`}
+                                                                      checked={!teacherCorrections[questionId]}
+                                                                      onChange={() =>
+                                                                        handleMarkAsCorrect(questionId, false)
+                                                                      }
+                                                                      className="mr-1"
+                                                                    />
+                                                                    <label
+                                                                      htmlFor={`${questionId}-incorrect`}
+                                                                      className="text-xs text-red-600"
+                                                                    >
+                                                                      falsch
+                                                                    </label>
+                                                                  </div>
+                                                                  <div className="flex items-center">
+                                                                    <input
+                                                                      type="radio"
+                                                                      id={`${questionId}-correct`}
+                                                                      name={`answer-${questionId}`}
+                                                                      checked={teacherCorrections[questionId] === true}
+                                                                      onChange={() =>
+                                                                        handleMarkAsCorrect(questionId, true)
+                                                                      }
+                                                                      className="mr-1"
+                                                                    />
+                                                                    <label
+                                                                      htmlFor={`${questionId}-correct`}
+                                                                      className="text-xs text-green-600"
+                                                                    >
+                                                                      falsch
+                                                                    </label>
+                                                                  </div>
+                                                                </div>
+                                                              )}
+                                                            </div>
+                                                          )
+                                                        ) : Array.isArray(solution.answer) ? (
+                                                          // Handle array answer
+                                                          solution.answer.map((ans, i) => {
+                                                            const itemResult = Array.isArray(solution.result)
+                                                              ? solution.result[i] === "correct"
+                                                              : solution.result === "correct"
+
+                                                            const questionItemId = `${questionId}-${i}`
+                                                            const isItemCorrect =
+                                                              itemResult || teacherCorrections[questionItemId] === true
+
+                                                            return (
+                                                              <div key={i} className="mb-2 flex items-start">
+                                                                <p
+                                                                  className={`text-sm p-2 rounded flex-grow ${
+                                                                    isItemCorrect
+                                                                      ? "bg-green-50 text-green-800"
+                                                                      : "bg-red-50 text-red-800"
+                                                                  }`}
+                                                                >
+                                                                  {ans}
+                                                                  {isItemCorrect && (
+                                                                    <Check className="inline-block h-4 w-4 ml-2 text-green-600" />
+                                                                  )}
+                                                                </p>
+
+                                                                {!itemResult && (
+                                                                  <div className="flex items-center space-x-4 ml-2 mt-1">
+                                                                    <div className="flex items-center">
+                                                                      <input
+                                                                        type="radio"
+                                                                        id={`${questionItemId}-incorrect`}
+                                                                        name={`answer-${questionItemId}`}
+                                                                        checked={!isItemCorrect}
+                                                                        onChange={() =>
+                                                                          handleMarkAsCorrect(questionItemId, false)
+                                                                        }
+                                                                        className="mr-1"
+                                                                      />
+                                                                      <label
+                                                                        htmlFor={`${questionItemId}-incorrect`}
+                                                                        className="text-xs text-red-600"
+                                                                      >
+                                                                        falsch
+                                                                      </label>
+                                                                    </div>
+                                                                    <div className="flex items-center">
+                                                                      <input
+                                                                        type="radio"
+                                                                        id={`${questionItemId}-correct`}
+                                                                        name={`answer-${questionItemId}`}
+                                                                        checked={isItemCorrect}
+                                                                        onChange={() =>
+                                                                          handleMarkAsCorrect(questionItemId, true)
+                                                                        }
+                                                                        className="mr-1"
+                                                                      />
+                                                                      <label
+                                                                        htmlFor={`${questionItemId}-correct`}
+                                                                        className="text-xs text-green-600"
+                                                                      >
+                                                                        richtig
+                                                                      </label>
+                                                                    </div>
+                                                                  </div>
+                                                                )}
+                                                              </div>
+                                                            )
+                                                          })
+                                                        ) : (
+                                                          // Fallback for single answer
+                                                          <div className="mb-2 flex items-start">
                                                             <p
-                                                              className={`text-sm p-2 rounded mb-1 ${
-                                                                solution.result === "correct" || isCorrect
+                                                              className={`text-sm p-2 rounded flex-grow ${
+                                                                solution.result === "correct" ||
+                                                                teacherCorrections[questionId] === true
                                                                   ? "bg-green-50 text-green-800"
                                                                   : "bg-red-50 text-red-800"
                                                               }`}
                                                             >
-                                                              {String(solution.answer.solution)}
-                                                              {(solution.result === "correct" || isCorrect) && (
+                                                              {String(solution.answer)}
+                                                              {(solution.result === "correct" ||
+                                                                teacherCorrections[questionId] === true) && (
                                                                 <Check className="inline-block h-4 w-4 ml-2 text-green-600" />
                                                               )}
                                                             </p>
-                                                          )
-                                                        ) : (
-                                                          <p
-                                                            className={`text-sm p-2 rounded mb-1 ${
-                                                              solution.result === "correct" || isCorrect
-                                                                ? "bg-green-50 text-green-800"
-                                                                : "bg-red-50 text-red-800"
-                                                            }`}
-                                                          >
-                                                            {String(solution.answer)}
-                                                            {(solution.result === "correct" || isCorrect) && (
-                                                              <Check className="inline-block h-4 w-4 ml-2 text-green-600" />
+
+                                                            {solution.result === "incorrect" && (
+                                                              <div className="flex items-center space-x-4 ml-2 mt-1">
+                                                                <div className="flex items-center">
+                                                                  <input
+                                                                    type="radio"
+                                                                    id={`${questionId}-incorrect`}
+                                                                    name={`answer-${questionId}`}
+                                                                    checked={!teacherCorrections[questionId]}
+                                                                    onChange={() =>
+                                                                      handleMarkAsCorrect(questionId, false)
+                                                                    }
+                                                                    className="mr-1"
+                                                                  />
+                                                                  <label
+                                                                    htmlFor={`${questionId}-incorrect`}
+                                                                    className="text-xs text-red-600"
+                                                                  >
+                                                                    falsch
+                                                                  </label>
+                                                                </div>
+                                                                <div className="flex items-center">
+                                                                  <input
+                                                                    type="radio"
+                                                                    id={`${questionId}-correct`}
+                                                                    name={`answer-${questionId}`}
+                                                                    checked={teacherCorrections[questionId] === true}
+                                                                    onChange={() =>
+                                                                      handleMarkAsCorrect(questionId, true)
+                                                                    }
+                                                                    className="mr-1"
+                                                                  />
+                                                                  <label
+                                                                    htmlFor={`${questionId}-correct`}
+                                                                    className="text-xs text-green-600"
+                                                                  >
+                                                                    richtig
+                                                                  </label>
+                                                                </div>
+                                                              </div>
                                                             )}
-                                                          </p>
+                                                          </div>
                                                         )}
                                                       </div>
                                                     </div>
