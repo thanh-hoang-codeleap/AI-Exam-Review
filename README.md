@@ -2,6 +2,23 @@
 
 AI Exam Reviewer is designed to help teachers check students' essays for mistakes such as grammar or pronunciation errors. This application leverages AI to provide feedback and assist with the review process.
 
+## Table of Contents
+- [Deployment Guide](#deployment-guide)
+  - [Build Applications](#build-applications)
+  - [Release](#release)
+- [Local Installation](#local-installation)
+  - [Prerequisites](#prerequisites)
+  - [1. Clone the repository](#1-clone-the-repository)
+  - [2. Install Frontend dependencies](#2-install-frontend-dependencies)
+  - [3. Install Backend dependencies](#3-install-backend-dependencies)
+  - [4. Create a .env file](#4-create-a-env-file-in-the-backend-folder-and-add-the-following-information)
+- [Usage](#usage)
+  - [1. Start the Backend](#1-start-the-backend)
+  - [2. Start the Frontend](#2-start-the-frontend)
+- [Demo Video](#demo-video)
+  - [Text Checking](#text-checking)
+  - [Task Checking](#task-checking)
+
 ## Deployment Guide
 
 ### Build Applications
@@ -21,7 +38,7 @@ In each `backend` and `frontend` folder, there is a Dockerfile. For each push to
 
 Note: You will need to manually add each environment variable for the backend container to work properly. The author hasn't found a solution more efficient at the moment.
 
-## Installation
+## Local Installation
 
 ### Prerequisites
 - [Node.js](https://nodejs.org) for frontend setup
@@ -39,7 +56,7 @@ Clone this repository to your local machine:
 ### 2. Install Frontend dependencies:
    ```bash
    cd frontend
-   pnpm isntall
+   pnpm install
    ```
 
 ### 3. Install Backend dependencies:
