@@ -3,7 +3,7 @@ services:
     image: ghcr.io/thanh-hoang-codeleap/ai-exam-review/ai-exam-reviewer-backend:latest
     container_name: ai-exam-reviewer-backend
     ports:
-      - "8000:8000" 
+      - "8000:8000"
 
   frontend:
     image: ghcr.io/thanh-hoang-codeleap/ai-exam-review/ai-exam-reviewer-frontend:latest

@@ -515,4 +515,3 @@ export default function ExamList({ classId }: ExamListProps) {
     </div>
   )
 }
-

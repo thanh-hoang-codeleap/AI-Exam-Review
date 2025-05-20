@@ -44,4 +44,3 @@ export default function ClassCard({ classData }: ClassCardProps) {
     </Link>
   )
 }
-

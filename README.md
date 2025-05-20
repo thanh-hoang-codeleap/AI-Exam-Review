@@ -2,6 +2,24 @@
 
 AI Exam Reviewer is designed to help teachers check students' essays for mistakes such as grammar or pronunciation errors. This application leverages AI to provide feedback and assist with the review process.
 
+## Table of Contents
+- [Deployment Guide](#deployment-guide)
+  - [Build Applications](#build-applications)
+  - [Release](#release)
+- [Local Installation](#local-installation)
+  - [Prerequisites](#prerequisites)
+  - [1. Clone the repository](#1-clone-the-repository)
+  - [2. Install Frontend dependencies](#2-install-frontend-dependencies)
+  - [3. Install Backend dependencies](#3-install-backend-dependencies)
+  - [4. Create a .env file](#4-create-a-env-file-in-the-backend-folder-and-add-the-following-information)
+- [Usage](#usage)
+  - [1. Start the Backend](#1-start-the-backend)
+  - [2. Start the Frontend](#2-start-the-frontend)
+- [Demo Video](#demo-video)
+  - [Text Checking](#text-checking)
+  - [Task Checking](#task-checking)
+- [Run pre-commit](#run-pre-commit)
+
 ## Deployment Guide
 
 ### Build Applications
@@ -21,7 +39,7 @@ In each `backend` and `frontend` folder, there is a Dockerfile. For each push to
 
 Note: You will need to manually add each environment variable for the backend container to work properly. The author hasn't found a solution more efficient at the moment.
 
-## Installation
+## Local Installation
 
 ### Prerequisites
 - [Node.js](https://nodejs.org) for frontend setup
@@ -39,7 +57,7 @@ Clone this repository to your local machine:
 ### 2. Install Frontend dependencies:
    ```bash
    cd frontend
-   pnpm isntall
+   pnpm install
    ```
 
 ### 3. Install Backend dependencies:
@@ -85,3 +103,9 @@ Upload a handwritten PDF, and the AI will read the text, analyze it for potentia
 Upload both the exam paper and the corresponding solution file. The system will extract the correct answers, allowing you to review and verify them. In the future, this can be enhanced to support adjusting answers and assigning points as needed.\
 Once the solution extraction is complete, upload the exam paper for review. The system will extract the answers from the exam paper, compare them with the solution, and display the final result. For any incorrect answers, you can review both the answer and the solution to determine if the answer is correct.\
 [Task Checking Demo](https://drive.google.com/file/d/1NrsjiQw558_dXlKGfUNQ0Prit2XUvP_N/view?usp=sharing)
+
+## Run `pre-commit`
+Run this command before `git commit`
+   ```shell
+   pre-commit run --all-files
+   ```

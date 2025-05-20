@@ -122,4 +122,3 @@ export default function StudentPage({ params }: StudentPageProps) {
     </main>
   )
 }
-

@@ -185,4 +185,3 @@ export default function StudentFeedback({ studentId, classId }: StudentFeedbackP
     </div>
   )
 }
-
