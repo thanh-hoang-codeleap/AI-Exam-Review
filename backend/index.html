@@ -16,16 +16,16 @@
     </form>
     <h2>Processing Status:</h2>
     <div id="status"></div>
-    
+
     <script>
         document.getElementById("uploadForm").addEventListener("submit", function(event){
             event.preventDefault();
             const formData = new FormData();
             formData.append("file", document.getElementById("fileUpload").files[0]);
-            
+
             // Show status
             document.getElementById("status").innerHTML = '<p class="loading">Processing file...</p>';
-            
+
             fetch("/upload", {
                 method: "POST",
                 body: formData
@@ -37,7 +37,7 @@
                     statusHtml += "<h3>Extracted Text:</h3>";
                     statusHtml += "<pre-wrap>" + data.text + "</pre-wrap>";
                     // statusHtml += "<h3>Detected Mistakes:</h3>";
-                    
+
                     // if (data.mistakes && data.mistakes.length > 0) {
                     //     statusHtml += "<ul>";
                     //     data.mistakes.forEach(mistake => {
@@ -47,7 +47,7 @@
                     // } else {
                     //     statusHtml += "<p>No mistakes detected.</p>";
                     // }
-                    
+
                     document.getElementById("status").innerHTML = statusHtml;
                 } else {
                     document.getElementById("status").innerHTML = '<p class="error">An error occurred during processing: ' + data.error + '</p>';

@@ -12,3 +12,4 @@ openai==1.69.0
 PyMuPDF==1.25.4
 pillow==11.2.1
 azure-ai-formrecognizer==3.3.3
+pre_commit==4.2.0

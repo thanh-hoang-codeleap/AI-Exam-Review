@@ -19,12 +19,13 @@ def read_first_page(image_path: str, output_path: str) -> None:
             # Open the image using Pillow
             img = Image.open(image_path)
             print("Finish opening image using Pillow")
-            custom_config = r'--oem 3 --psm 6 -c tessedit_create_hocr=1'
+            custom_config = r"--oem 3 --psm 6 -c tessedit_create_hocr=1"
             text = pytesseract.image_to_string(img, config=custom_config)
             file.write(text)
-            file.write('\n')
+            file.write("\n")
     except Exception as e:
         print(f"Failed to read the first page. \n Error: {e}")
+
 
 # Removes the first page of the PDF
 def remove_first_page(input_pdf_path: str) -> str:
@@ -32,7 +33,7 @@ def remove_first_page(input_pdf_path: str) -> str:
         # Open the PDF file
         with open(input_pdf_path, "rb") as infile:
             reader = PdfReader(infile)
-            
+
             # Create a PdfWriter object to write the output
             writer = PdfWriter()
 
@@ -50,8 +51,11 @@ def remove_first_page(input_pdf_path: str) -> str:
         print(f"Failed to remove the first page from the PDF. Error: {e}")
         return ""
 
+
 # Extracts text from a PDF using Azure Document Analysis
-def extract_text_from_pdf(pdf_path: str, output_path: str, client: DocumentAnalysisClient) -> None:
+def extract_text_from_pdf(
+    pdf_path: str, output_path: str, client: DocumentAnalysisClient
+) -> None:
     try:
         with open(pdf_path, "rb") as f:
             # Begin document analysis with Azure Document Intelligence
@@ -70,7 +74,7 @@ def extract_text_from_pdf(pdf_path: str, output_path: str, client: DocumentAnaly
                     # Get the content of the current line
                     line_content = line.content
                     extracted_text += line_content + "\n"
-                
+
                 # Write extracted text to the output file
                 with open(output_path, "a") as file:
                     file.write(extracted_text)
@@ -78,6 +82,7 @@ def extract_text_from_pdf(pdf_path: str, output_path: str, client: DocumentAnaly
         print("Finish reading the file")
     except Exception as e:
         print(f"Failed to extract text from PDF. Error: {e}")
+
 
 # Extract the task using OCR
 def extract_tasks(file_path: str) -> str | None:
@@ -88,12 +93,12 @@ def extract_tasks(file_path: str) -> str | None:
         # Initialize Azure DocumentAnalysisClient
         client = DocumentAnalysisClient(
             endpoint=os.getenv("END_POINT"),
-            credential=AzureKeyCredential(os.getenv("API_KEY"))
+            credential=AzureKeyCredential(os.getenv("API_KEY")),
         )
 
         # Prepare the output file
         file_name = os.path.basename(file_path)[:-4].replace(" ", "_")
-        output_file = f'extracted_texts/{file_name}.txt'
+        output_file = f"extracted_texts/{file_name}.txt"
         if os.path.exists(output_file):
             os.remove(output_file)
 
@@ -106,8 +111,8 @@ def extract_tasks(file_path: str) -> str | None:
 
         # Process each image (PDF page) for OCR
         for i, image in enumerate(images):
-            image_path = f'{images_folder}/page_{i + 1}.png'
-            image.save(image_path, 'PNG')
+            image_path = f"{images_folder}/page_{i + 1}.png"
+            image.save(image_path, "PNG")
 
             # Read first page and extract text from it
             if i == 0:

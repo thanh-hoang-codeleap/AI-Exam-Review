@@ -41,17 +41,17 @@ You will receive two JSON objects with the following structure:
   * For multiple-select questions, check if all correct option contents are present and no incorrect options are included
   * Accept partial text if it uniquely identifies the correct option
   * Recognize common OCR errors for option content (e.g., "Nltrogen" instead of "Nitrogen")
-    
+
 * For text/short answer questions:
   * Apply fuzzy matching to account for OCR errors
   * Accept minor spelling variations, spacing differences, and capitalization differences
   * Accept synonyms or equivalent phrasings when appropriate
   * The core meaning and key terms must be present
-    
+
 * For numerical answers:
   * Allow for missing units if the numeric value is correct
   * Accept equivalent numerical representations (e.g., "5" vs "5.0" vs "five")
-    
+
 * For fill-in-the-blank questions:
   * Accept minor variations in spelling and formatting
   * The key terms must be present
