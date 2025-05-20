@@ -7,7 +7,8 @@ from dotenv import load_dotenv
 from ocr_pdf import ocr_pdf
 from relevance_tool.tool_test import mistakes_detect, process_output
 from relevance_tool.tool_task import process_task
-from relevance_tool.process_tasks import get_tasks_answers, remove_last_page
+from relevance_tool.process_tasks import remove_last_page
+from relevance_tool.extract_answers import extract_answers
 from extract_tasks import extract_tasks
 from process_task_result.answers_check import check_answers
 from export_xlsx import create_excel
@@ -17,7 +18,7 @@ load_dotenv()
 app = Flask(__name__, static_url_path='/static', static_folder='static')
 CORS(app)
 
-exam_paper_path = "backend/exam_paper.json"
+exam_paper_path = "exam_paper.json"
 solution_path = ""
 student_answers_path = ""
 checking_result_path = ""
@@ -35,7 +36,7 @@ app.config['SOLUTION_FOLDER'] = SOLUTION_FOLDER
 app.config['TASK_FOLDER'] = TASK_FOLDER
 app.config['TEXT_FOLDER'] = TEXT_FOLDER
 
-STATIC_DIR = 'backend/static'
+STATIC_DIR = 'static'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(OUTPUT_FOLDER, exist_ok=True)
 os.makedirs(SOLUTION_FOLDER, exist_ok=True)
@@ -230,7 +231,8 @@ def process_answer_sheet():
 
         try:
             global student_answers_path
-            student_answers_path = get_tasks_answers(exam_paper_path, answer_path)
+            # Extract the student answers
+            student_answers_path = extract_answers(answer_path, exam_paper_path)
             
         except Exception as e:
             print(f"Error when getting answers: {e}")
