@@ -18,6 +18,7 @@ AI Exam Reviewer is designed to help teachers check students' essays for mistake
 - [Demo Video](#demo-video)
   - [Text Checking](#text-checking)
   - [Task Checking](#task-checking)
+- [Run pre-commit](#run-pre-commit)
 
 ## Deployment Guide
 
@@ -102,3 +103,9 @@ Upload a handwritten PDF, and the AI will read the text, analyze it for potentia
 Upload both the exam paper and the corresponding solution file. The system will extract the correct answers, allowing you to review and verify them. In the future, this can be enhanced to support adjusting answers and assigning points as needed.\
 Once the solution extraction is complete, upload the exam paper for review. The system will extract the answers from the exam paper, compare them with the solution, and display the final result. For any incorrect answers, you can review both the answer and the solution to determine if the answer is correct.\
 [Task Checking Demo](https://drive.google.com/file/d/1NrsjiQw558_dXlKGfUNQ0Prit2XUvP_N/view?usp=sharing)
+
+## Run `pre-commit`
+Run this command before `git commit`
+   ```shell
+   pre-commit run --all-files
+   ```
