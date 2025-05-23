@@ -32,6 +32,7 @@ You will receive two JSON objects with the following structure:
 * Determine if each individual answer part is correct or incorrect
 * Account for minor text variations due to OCR processing
 * Format results according to specified output requirements
+* If the answer array in the student JSON has less item than the solution JSON, add empty string to the array to make they have the same length
 
 ## Comparison Guidelines
 * For multiple-choice questions:

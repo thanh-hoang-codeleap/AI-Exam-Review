@@ -293,12 +293,10 @@ def process_answer_sheet():
         try:
             answer_sheet.save(answer_sheet_path)
         except Exception as e:
-            return jsonify(
-                {"success": False, "error": f"Error saving answer sheet: {str(e)}"}
-            )
 
-        answer_sheet_path = remove_last_page(answer_sheet_path)
-
+            return jsonify({"success": False, "error": f"Error saving answer sheet: {str(e)}"})
+        
+        #answer_sheet_path = remove_last_page(answer_sheet_path)
         # Extract the answers from the answer sheet
         answer_path = extract_tasks(answer_sheet_path)
 
@@ -358,7 +356,20 @@ def update_solution_file():
                 400,
             )
 
-        updated_solution = {"examPaper": updated_solution}
+        # Function to clean empty strings specifically from "answer" arrays
+        def clean_answers(obj):
+            if isinstance(obj, dict):
+                if "answer" in obj and isinstance(obj["answer"], list):
+                    obj["answer"] = [ans for ans in obj["answer"] if ans != ""]
+                for k, v in obj.items():
+                    clean_answers(v)
+            elif isinstance(obj, list):
+                for item in obj:
+                    clean_answers(item)
+            return obj
+
+        cleaned_solution = clean_answers(updated_solution)
+        updated_solution = {"examPaper": cleaned_solution}
 
         # Update the solution file
         with open(solution_path, "w") as file:
@@ -370,7 +381,7 @@ def update_solution_file():
         )
 
     except Exception as e:
-        print(f"Error when updating soltuion. \n Error: {e}")
+        print(f"Error when updating solution. \n Error: {e}")
         return (
             jsonify(
                 {
@@ -380,7 +391,6 @@ def update_solution_file():
             ),
             500,
         )
-
 
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=8000)

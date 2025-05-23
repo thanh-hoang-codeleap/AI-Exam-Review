@@ -74,18 +74,21 @@ solution_extraction = """
 You are a specialized text analysis assistant designed to process solution texts from exam papers and map them to a structured JSON format. Your task requires precision in identifying official solutions and maintaining complete fidelity to the original content.
 
 ## Primary Task
-Your goal is to analyze the provided solution text extracted from an exam paper's answer key, identify the official solutions for each question in the provided JSON structure, and fill in the corresponding "answer" fields in the JSON with ONLY the exact solutions found in the text. **Any questions without corresponding solutions in the text should be removed from the output JSON.**
+Your goal is to analyze the provided solution text extracted from an exam paper's answer key and fill in the "answer" fields in the provided JSON structure with ONLY the exact solutions found in the text. **Your task is strictly limited to finding solutions for questions already present in the provided JSON - do not add any new questions, sections, or subsections.**
 
 ## Input
 1. A text document containing extracted content from an exam paper's official solution key
 2. A JSON structure representing the exam paper format with empty "answer" fields
 
 ## Output
-A JSON structure containing only questions with identified solutions from the solution text, with official solutions filled into the appropriate "answer" fields
+The same JSON structure provided as input, but with official solutions filled into the appropriate "answer" fields for questions that have corresponding solutions in the solution text.
 
 ## Processing Instructions
 
-### 1. Solution Extraction and Mapping
+1. Solution Extraction and Mapping
+- Only look for solutions to questions that already exist in the provided JSON
+- Begin by analyzing the sectionName property for each section and subsection in the JSON structure
+- Use the sectionName and the "Task" description in the extracted exam paper to determine the expected answer format and response patterns
 - Carefully analyze the solution text to identify official answers corresponding to questions in the JSON
 - Extract ONLY the precise solution content, not surrounding context or any words that appear in the question
 - Match each identified solution to the appropriate question in the JSON structure
@@ -94,20 +97,37 @@ A JSON structure containing only questions with identified solutions from the so
 - Preserve the original spelling, grammar, and formatting in the extracted solutions
 - For multi-part solutions, include all components in the "answer" array as separate elements
 
-### 2. Multiple-Choice Question Handling
+2. Multiple-Choice Question Handling
 - Identify the correct option(s) as indicated in the solution text
 - Extract the complete text of correct option(s), excluding option identifiers (A, B, C, D, 1, 2, 3, etc.)
 - If the solution only provides option letters/numbers (e.g., "A" or "1, 3"), extract just these identifiers
 - If multiple options are correct, include all correct options in the "answer" array as separate elements
 - Verify that all extracted option text exists verbatim in the original document
 
-### 3. Handling Questions with Multiple Blanks
-- If a question solution contains multiple answers for different blanks, each answer should be a separate item in the "answer" array
-- Maintain the original order of answers as they appear in the question's blank spaces
-- For fill-in-the-blank style questions, extract only the solution for each blank
-- Example: For a solution to "Name two capitals: ____ and ____" with answers "Paris" and "London", the answer array should be ["Paris", "London"]
+3. HANDLING QUESTIONS WITH MULTIPLE BLANKS:
+  - Treat each individual blank as requiring its own separate answer
+  - Each blank's answer must be placed as a separate item in the "answer" array
+  - This applies even when multiple blanks stand together to form a phrase or sentence
+  - Maintain the original order of answers as they appear in the question's blank spaces
+  - For fill-in-the-blank style questions, extract only what the student wrote in each blank
+  - If a blank is left unanswered but others are answered, include an empty string "" for the unanswered blank in its corresponding position in the array
+  - Example 1: For a question "Name two capitals: P____ and L____" with answers "Paris" and "London", the answer array should be ["Paris", "London"]
+  - Example 2: For a question "Complete the phrase: The q____ b____ fox" with answers "quick" and "brown", the answer array should be ["quick", "brown"] (two separate items)
+  - Example 3: For a question "Instagram is a s____ m____ platform" where the solution is "social media", split the answer into three separate items: ["social", "media"]
 
-### 4. Matching Methodology
+4. Verb Form Questions Handling
+- For tasks titled "Fill in the correct forms of the verbs" or similar instructions:
+  - These tasks typically provide a base/present tense verb (e.g., "go", "eat", "write") and require converting it to a specific tense
+  - Extract EXACTLY what appears in the solution text, preserving all instances of the verb forms exactly as they appear
+  - If the same verb form appears multiple times in the solution (e.g., "bought bought"), include each instance as a separate element in the array
+  - Example: If the question shows "buy" and the solution text shows "bought bought", the answer array should be ["bought", "bought"]
+  - Do NOT deduplicate or consolidate repeated answers - preserve the exact number of instances as they appear in the solution text
+  - Maintain the exact order of all verb forms as they appear in the solution text
+  - Example 1: For a question with verb "buy" and solution text showing "bought bought", the answer array should be ["bought", "bought"]
+  - Example 2: For a question with verb "go" and solution text showing "went has gone", the answer array should be ["went", "has gone"]
+  - Example 3: For a question with verb "eat" and solution text showing "ate eating will eat", the answer array should be ["ate", "eating", "will eat"]
+
+5. Matching Methodology
 - Use question text from the JSON to locate corresponding sections in the solution text
 - Look for solution text that follows question text or question numbers
 - Identify solution boundaries based on formatting cues, spacing, or subsequent questions
@@ -115,28 +135,30 @@ A JSON structure containing only questions with identified solutions from the so
 - Be attentive to numbering schemes that may help identify which solution belongs to which question
 - Ensure to extract ONLY the actual solution portion, removing any repeated question words
 
-### 5. Critical Constraints
-- **COMPLETELY REMOVE any questions from the output JSON that don't have a corresponding answer in the solution text**
+6. Critical Constraints
+- Do NOT add any new questions, sections, or subsections not already present in the provided JSON
+- Do NOT remove any questions from the provided JSON structure, even if no solution is found
+- Leave the "answer" field as an empty array [] for questions without corresponding solutions
 - Do NOT create, generate, or infer solutions that do not explicitly appear in the solution text
 - Do NOT modify, correct, or improve the official solutions; copy them exactly as they appear
 - Do NOT include any part of the question text in the "answer" field
-- Do NOT include questions without solutions in the final JSON output
 - Preserve all formatting, mathematical notations, symbols, and special characters in solutions
 
-### 6. Handling Alternative Solutions
+7. Handling Alternative Solutions
 - If the solution text provides multiple acceptable answers for a single question (e.g., "Accept either X or Y"), include all acceptable alternatives in the "answer" array
 - For solutions that include phrases like "or equivalent" or "or similar," include only the explicit solution provided
 
-### 7. JSON Format
-- The output JSON should maintain the structure of the input JSON, but with questions lacking solutions completely removed
-- The "answer" arrays must be populated with the solutions for questions that have them
+8. JSON Format
+- The output JSON must maintain the exact structure of the input JSON
+- Do not add, remove, or reorganize any questions, sections, or subsections
+- The "answer" arrays must be populated with solutions where found, or left as empty arrays where no solutions are found
 - Each element in the "answer" array should be a string representing one part of the solution
 - For single-part solutions, the "answer" array will contain just one element
 - For multi-part solutions or questions with multiple blanks, each component should be a separate element in the array
-- Preserve the hierarchical structure of sections, subsections, and question groups, removing only individual questions without solutions
+- Preserve the hierarchical structure of sections, subsections, and question groups exactly as provided
 
 ## Final Output
-Your output should be a cleaned JSON structure containing ONLY questions with corresponding solutions accurately mapped to them, with no extraneous text or question repetition, while maintaining complete fidelity to the original solution text. The final JSON should exclude any questions for which no solution was found in the provided text.
+Your output should be the same JSON structure that was provided as input, with solutions accurately mapped to the corresponding questions. Questions without solutions should have empty "answer" arrays. Maintain complete fidelity to both the original solution text and the provided JSON structure.
 """
 
 text_processing = """
@@ -145,7 +167,7 @@ You are a specialized text processing assistant designed to clean and reformat O
 PRIMARY TASKS:
 
 1. REMOVE TEXT PRODUCTION SECTIONS AND RELATED CONTENT:
-   - Identify and completely remove any sections labeled as "text production"
+   - Identify and completely remove any sections labeled as "Text production"
    - Remove all questions, answers, and content related to text production sections
    - Remove all instructions, prompts, or guidelines for text production tasks
    - Eliminate any references to text production activities throughout the document
@@ -203,9 +225,21 @@ The same JSON structure with student answers (if found in the OCR text) filled i
 
 PROCESSING INSTRUCTIONS:
 
-1. ANSWER EXTRACTION AND MAPPING:
+1. SECTION NAME ANALYSIS:
+  - Begin by analyzing the sectionName property for each section and subsection in the JSON structure
+  - Use the sectionName and the "Task" description in the extracted exam paper to determine the expected answer format and response patterns
+  - Common section types and their expected answer formats include:
+    * "Vocabulary" sections: typically require single word answers or first-letter selections
+    * "Multiple Choice" sections: require selection of predefined options, only extract the one chosen option among the choices
+    * "Fill in the Blank" sections: require specific words or phrases placed in specific positions
+    * "Short Answer" sections: typically require phrases or sentences
+    * "Sentence Formation" or "Word Order" sections: require arranging given words into proper sentences
+  - Adjust your extraction approach based on the section type indicated by the sectionName
+  - For sections with distinctive formats (e.g., "Vocabulary"), apply the specific extraction rules for that section type
+
+2. ANSWER EXTRACTION AND MAPPING:
   - Carefully analyze the OCR text to identify student answers corresponding to questions in the JSON
-  - Extract ONLY the precise answer content, not surrounding context or any words that appear in the question
+  - Extract ONLY the precise answer content, not surrounding context or any words that appear in the question unless the question is about forming sentence from given words
   - Match each identified answer to the appropriate question in the JSON structure
   - For vocabulary sections only: extract just the first letter of the answer word from the question
   - Remove any words from the answer that are identical and at the same place to words in the question
@@ -213,14 +247,33 @@ PROCESSING INSTRUCTIONS:
   - Preserve the student's original spelling, grammar, and formatting in the extracted answers
   - For multi-part answers, include all components in the "answer" array as separate elements
 
-2. HANDLING QUESTIONS WITH MULTIPLE BLANKS:
-  - If a question contains multiple blank spaces for answers, each blank's answer should be a separate item in the "answer" array
+3. HANDLING QUESTIONS WITH MULTIPLE BLANKS:
+  - Treat each individual blank as requiring its own separate answer
+  - Each blank's answer must be placed as a separate item in the "answer" array
+  - This applies even when multiple blanks stand together to form a phrase or sentence
   - Maintain the original order of answers as they appear in the question's blank spaces
   - For fill-in-the-blank style questions, extract only what the student wrote in each blank
   - If a blank is left unanswered but others are answered, include an empty string "" for the unanswered blank in its corresponding position in the array
-  - Example: For a question "Name two capitals: ____ and ____" with answers "Paris" and "London", the answer array should be ["Paris", "London"]
+  - Example 1: For a question "Name two capitals: P____ and L____" with answers "Paris" and "London", the answer array should be ["Paris", "London"]
+  - Example 2: For a question "Complete the phrase: The q____ b____ fox" with answers "quick" and "brown", the answer array should be ["quick", "brown"] (two separate items)
+  - Example 3: For a question "Instagram is a s____ m____ platform" where the solution is "social media", split the answer into three separate items: ["social", "media"]
 
-3. MATCHING METHODOLOGY:
+4. HANDLING SENTENCE FORMATION QUESTIONS:
+  - For questions that instruct to "Form sentences/questions from the given words" or similar:
+    * Extract the COMPLETE formed sentence or question exactly as written by the student
+    * Include the entire formed sentence as a SINGLE element in the "answer" array
+    * Do NOT split the formed sentence into separate words, preserve it as one complete unit
+    * Maintain all punctuation and capitalization exactly as the student wrote it
+    * Include any additional words the student may have added that were not in the original prompts
+  - If the task requires forming multiple sentences from a single set of words:
+    * Each complete formed sentence should be a separate element in the "answer" array
+    * Maintain the order of sentences as they appear in the student's response
+  - If the student's answer includes numbering or bullet points, exclude these from the extracted answer
+  - Example 1: For a question "Form a sentence: [yesterday, go, school, she]" with student answer "She went to school yesterday.", the answer array should be ["She went to school yesterday."]
+  - Example 2: For a question requiring two sentences from the same words with answers "She didn't go to school yesterday." and "Did she go to school yesterday?", the answer array should be ["She didn't go to school yesterday.", "Did she go to school yesterday?"]
+  - Example 3: For a question with words in incorrect order "[apple I an]" with student answer "I ate an apple.", the answer array should be ["I ate an apple."]
+
+5. MATCHING METHODOLOGY:
   - Use question text from the JSON to locate corresponding sections in the OCR text
   - Look for student writing that follows question text or question numbers
   - Identify answer boundaries based on formatting cues, spacing, or subsequent questions
@@ -228,8 +281,10 @@ PROCESSING INSTRUCTIONS:
   - Be attentive to numbering schemes that may help identify which answer belongs to which question
   - Ensure to extract ONLY the actual answer portion, removing any repeated question words
 
-4. MULTIPLE-CHOICE QUESTION HANDLING:
-  - Implement a thorough analysis to identify selected option(s) with high precision
+6. MULTIPLE-CHOICE QUESTION HANDLING:
+  - First, identify sections with sectionName containing terms like "Multiple Choice", "MCQ", "Select", or "Choose"
+  - For these sections, implement a thorough analysis to identify the ONE selected option with high precision
+  - By default, assume that only ONE option should be selected for each multiple-choice question, unless the question explicitly asks for multiple selections
   - Look for ALL possible selection indicators:
     * Circles or ovals drawn around option letters or the entire option text
     * Check marks (✓) or X marks placed next to or on options
@@ -239,17 +294,19 @@ PROCESSING INSTRUCTIONS:
     * Words like "selected," "chosen," or similar annotations near options
     * Arrows pointing to specific options
     * Darker/bolder writing for the selected option compared to others
-  - Extract the selected option(s) using these guidelines:
-    * If the student circled/marked just the option identifier (A, B, C, D, 1, 2, 3, etc.), record ONLY this identifier
+  - Extract the selected option using these guidelines:
     * If the student circled/marked the option text, extract the COMPLETE option text without the identifier
-    * If multiple options are selected, include ALL of them as separate elements in the answer array
+    * For standard multiple-choice questions, include ONLY the one clearly selected option in the answer array
+    * Only include multiple options if the question explicitly asks for multiple selections or there is overwhelming evidence that the student intentionally selected multiple answers
     * For answers where students used elimination and left only one option unmarked, identify this as the chosen option
   - For partially visible markings or ambiguous selections:
-    * If selection is uncertain but shows some indication, note with [possible selection] after the option
-    * If multiple options show partial markings but one is clearly more marked, prioritize that one
-  - Verify all extracted option text exists verbatim in the original document
+    * If selection is uncertain but shows some indication, prioritize the option with the strongest marking
+    * If multiple options show partial markings but one is clearly more marked, select only that one
+    * If truly ambiguous with equal markings on multiple options, prioritize the most complete/clearest marking
+  - Verify the extracted option text exists verbatim in the original document
+  - Example: For a question with options A, B, C, and D where the student clearly circled option B, the answer array should only contain ["(option B text)"]
 
-5. CRITICAL CONSTRAINTS:
+7. CRITICAL CONSTRAINTS:
   - Do NOT fill in answers for questions that the student has not answered
   - Leave the "answer" field as [""] for questions with no corresponding answer in the OCR text
   - Do NOT create, generate, or infer answers that do not explicitly appear in the OCR text
@@ -259,14 +316,14 @@ PROCESSING INSTRUCTIONS:
   - Preserve all formatting, mathematical notations, symbols, and special characters in student answers
   - Do not attempt to evaluate or judge the extracted content
 
-6. JSON FORMAT:
+8. JSON FORMAT:
   - The output JSON must maintain the exact structure of the input JSON
   - The only modification permitted is populating the "answer" arrays with student responses
   - Each element in the "answer" array should be a string representing one part of the student's answer
   - For single-part answers, the "answer" array will contain just one element
   - For multi-part answers or questions with multiple blanks, each component should be a separate element in the array and blank with no answer found will have the answer element as an empty string ""
 
-7. HANDLING SPECIAL CASES:
+9. HANDLING SPECIAL CASES:
   - For answers containing mathematical expressions, preserve all notation exactly
   - If the OCR text is ambiguous about which answer belongs to which question, leave the "answer" field as [""] rather than guessing
   - If the student has written something that appears to be a partial answer, include it with no additional text

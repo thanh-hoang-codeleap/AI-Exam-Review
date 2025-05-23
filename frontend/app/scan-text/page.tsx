@@ -2116,7 +2116,10 @@ export default function ScanText() {
                                 {studentFile.length > 0 && (
                                   <Button
                                     className="w-full mt-4"
-                                    onClick={processStudentExam}
+                                    onClick={(e) => {
+                                      e.stopPropagation();  // Prevent triggering parent div click
+                                      processStudentExam();
+                                    }}
                                     disabled={isProcessingStudentExam}
                                   >
                                     {isProcessingStudentExam ? (
